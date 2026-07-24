@@ -16,6 +16,7 @@ export async function PATCH(
     due_date,
     handoff_note,
     priority,
+    project_id,
     assignee_agent_id,
     assignee_user_id,
     status,
@@ -26,7 +27,48 @@ export async function PATCH(
 
   const supabase = createServiceClient()
 
+  // プロジェクト間移動: 移動先の存在・未アーカイブと、エージェントの
+  // project_ids 制限（設定時は移動元・移動先とも許可範囲内）を確認する
+  let movedAcrossProjects = false
+  if (project_id !== undefined) {
+    if (typeof project_id !== 'string' || !project_id) {
+      return NextResponse.json({ error: 'project_id must be a project UUID' }, { status: 400 })
+    }
+
+    const { data: targetProject } = await (supabase.from('projects') as any)
+      .select('id, archived_at')
+      .eq('id', project_id)
+      .maybeSingle()
+    if (!targetProject || targetProject.archived_at) {
+      return NextResponse.json({ error: 'Target project not found or archived' }, { status: 404 })
+    }
+
+    const { data: task } = await (supabase.from('tasks') as any)
+      .select('project_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
+    const { data: agentRow } = await (supabase.from('agents') as any)
+      .select('project_ids')
+      .eq('id', agent.agentId)
+      .maybeSingle()
+    const allowedProjects: string[] = agentRow?.project_ids ?? []
+    if (
+      allowedProjects.length > 0 &&
+      (!allowedProjects.includes(project_id) || !allowedProjects.includes(task.project_id))
+    ) {
+      return NextResponse.json(
+        { error: 'Agent is not allowed to move tasks across these projects' },
+        { status: 403 }
+      )
+    }
+
+    movedAcrossProjects = task.project_id !== project_id
+  }
+
   const updates: Record<string, unknown> = {}
+  if (movedAcrossProjects) updates.project_id = project_id
   if (status) updates.status = status
   if (priority) updates.priority = priority
   if (action_type) updates.action_type = action_type
@@ -50,6 +92,11 @@ export async function PATCH(
   if (Object.keys(updates).length > 0) {
     const { error } = await (supabase.from('tasks') as any).update(updates).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // タグはプロジェクト固有のため、移動時は紐付けを解除する
+  if (movedAcrossProjects) {
+    await (supabase.from('task_tags') as any).delete().eq('task_id', id)
   }
 
   if (comment) {
