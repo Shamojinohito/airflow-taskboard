@@ -20,6 +20,7 @@ export async function PATCH(
     assignee_agent_id,
     assignee_user_id,
     status,
+    title,
   } = body
   const requiredScopes = comment ? ['write:tasks', 'write:comments'] as const : ['write:tasks'] as const
   const agent = await getAgentFromRequest(request, [...requiredScopes])
@@ -69,6 +70,12 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {}
   if (movedAcrossProjects) updates.project_id = project_id
+  if (title !== undefined) {
+    if (typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'title must be a non-empty string' }, { status: 400 })
+    }
+    updates.title = title.trim()
+  }
   if (status) updates.status = status
   if (priority) updates.priority = priority
   if (action_type) updates.action_type = action_type
