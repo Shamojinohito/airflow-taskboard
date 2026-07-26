@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/kohei_suzuki/.volta/bin/node /Users/kohei_suzuki/hub/scripts/hooks/approval-gate.mjs",
+            "timeout": 1900
+          }
+        ]
+      }
+    ]
+  }
+}
