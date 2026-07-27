@@ -89,7 +89,7 @@ function ProjectRow({
       </Link>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-foreground focus:opacity-100 group-hover/proj:opacity-100"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-100 transition-opacity hover:bg-sidebar-accent hover:text-foreground focus:opacity-100 md:opacity-0 md:group-hover/proj:opacity-100"
           aria-label="Project options"
         >
           <MoreHorizontal size={15} />
@@ -280,7 +280,7 @@ export default function Sidebar({ className, onNavigate, dndEnabled = false }: S
                         <span className="ml-auto text-[11px] text-muted-foreground">{groupProjects.length}</span>
                       </button>
                       <Button variant="ghost" size="icon-sm"
-                        className="h-6 w-6 flex-shrink-0 text-muted-foreground opacity-0 hover:text-foreground focus:opacity-100 group-hover/grp:opacity-100"
+                        className="h-6 w-6 flex-shrink-0 text-muted-foreground opacity-100 hover:text-foreground focus:opacity-100 md:opacity-0 md:group-hover/grp:opacity-100"
                         title="New project in group" onClick={() => openCreateForGroup(group.id)}>
                         <Plus size={12} />
                       </Button>
