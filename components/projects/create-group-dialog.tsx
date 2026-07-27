@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -11,50 +10,32 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select'
-import { useProjectGroups } from '@/hooks/use-project-groups'
-
-const NO_GROUP = '__none__'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** グループ配下からの作成時に既定選択されるグループ */
-  defaultGroupId?: string | null
 }
 
-export default function CreateProjectDialog({ open, onOpenChange, defaultGroupId = null }: Props) {
+export default function CreateGroupDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [groupId, setGroupId] = useState<string>(defaultGroupId ?? NO_GROUP)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const queryClient = useQueryClient()
-  const router = useRouter()
   const supabase = createClient()
-  const { groups } = useProjectGroups()
-
-  // ダイアログを開くたびに既定グループを反映
-  useEffect(() => {
-    if (open) setGroupId(defaultGroupId ?? NO_GROUP)
-  }, [open, defaultGroupId])
 
   const handleCreate = async () => {
     if (!name.trim()) return
     setLoading(true)
     setErrorMessage('')
 
-    const selectedGroupId = groupId === NO_GROUP ? null : groupId
-
-    let { data: project, error } = await (supabase as any)
-      .rpc('create_project', {
-        project_name: name.trim(),
-        project_description: description.trim() || null,
-        project_group_id: selectedGroupId,
+    let { data: group, error } = await (supabase as any)
+      .rpc('create_project_group', {
+        group_name: name.trim(),
+        group_description: description.trim() || null,
       })
 
+    // RPC 未適用環境向けフォールバック（直接 insert）
     if (error?.code === '42883' || error?.code === 'PGRST202') {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
@@ -62,45 +43,27 @@ export default function CreateProjectDialog({ open, onOpenChange, defaultGroupId
         setLoading(false)
         return
       }
-
       const directResult = await supabase
-        .from('projects')
+        .from('project_groups')
         .insert({
           name: name.trim(),
           description: description.trim() || null,
           owner_id: user.id,
-          group_id: selectedGroupId,
         } as any)
         .select()
         .single()
-
-      project = directResult.data
+      group = directResult.data
       error = directResult.error
-
-      if (!error && project) {
-        await supabase.from('project_members').insert({
-          project_id: (project as any).id,
-          user_id: user.id,
-          role: 'owner',
-        } as any)
-      }
     }
 
     if (error) {
       setErrorMessage(error.message)
-    } else if (project) {
-      queryClient.setQueryData(['projects'], (current: unknown) => {
-        if (!Array.isArray(current)) return [project]
-        if (current.some((item: any) => item.id === (project as any).id)) return current
-        return [...current, project]
-      })
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
-      await queryClient.refetchQueries({ queryKey: ['projects'] })
+    } else if (group) {
+      await queryClient.invalidateQueries({ queryKey: ['project-groups'] })
+      await queryClient.refetchQueries({ queryKey: ['project-groups'] })
       setName('')
       setDescription('')
-      setGroupId(NO_GROUP)
       onOpenChange(false)
-      router.push(`/projects/${(project as any).id}`)
     }
 
     setLoading(false)
@@ -110,31 +73,17 @@ export default function CreateProjectDialog({ open, onOpenChange, defaultGroupId
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
+          <DialogTitle>Create Group</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Name</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Project name" />
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Estate Flow" />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Optional description" />
-          </div>
-          <div className="space-y-2">
-            <Label>Group</Label>
-            <Select value={groupId} onValueChange={v => v && setGroupId(v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_GROUP}>Ungrouped</SelectItem>
-                {(groups as any[]).map(group => (
-                  <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           {errorMessage && (
             <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">

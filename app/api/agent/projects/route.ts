@@ -16,10 +16,14 @@ export async function GET(request: Request) {
     .maybeSingle()
 
   let query = (supabase.from('projects') as any)
-    .select('id, name, description, created_at')
+    .select('id, name, description, group_id, created_at')
     .is('archived_at', null)
 
   if (agentRow?.project_ids?.length) query = query.in('id', agentRow.project_ids)
+
+  // 任意: ?group_id= でグループ絞り込み
+  const groupIdFilter = new URL(request.url).searchParams.get('group_id')
+  if (groupIdFilter) query = query.eq('group_id', groupIdFilter)
 
   const { data, error } = await query.order('created_at', { ascending: true })
 
@@ -77,6 +81,19 @@ export async function POST(request: Request) {
     )
   }
 
+  // 任意 group_id: 指定時は owner の所有グループでなければ 400
+  const groupId = typeof body?.group_id === 'string' && body.group_id ? body.group_id : null
+  if (groupId) {
+    const { data: groupRow } = await (supabase.from('project_groups') as any)
+      .select('id')
+      .eq('id', groupId)
+      .eq('owner_id', ownerId)
+      .maybeSingle()
+    if (!groupRow) {
+      return NextResponse.json({ error: 'Project group not found' }, { status: 400 })
+    }
+  }
+
   const { data: project, error } = await (supabase.from('projects') as any)
     .insert({
       name,
@@ -84,8 +101,9 @@ export async function POST(request: Request) {
         ? body.description.trim()
         : null,
       owner_id: ownerId,
+      group_id: groupId,
     })
-    .select('id, name, description, created_at')
+    .select('id, name, description, group_id, created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -97,7 +115,7 @@ export async function POST(request: Request) {
     action: 'projects.create',
     agentId: agent.agentId,
     idempotencyKey: request.headers.get('Idempotency-Key'),
-    metadata: { name, project_id: project.id },
+    metadata: { name, project_id: project.id, group_id: groupId },
     requestId: request.headers.get('X-Request-Id'),
   })
 
