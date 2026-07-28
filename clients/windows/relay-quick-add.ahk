@@ -44,6 +44,15 @@ Submit(qaGui, text) {
     try {
         req := ComObject("WinHttp.WinHttpRequest.5.1")
         req.Open("POST", BASE_URL "/api/v1/agent/quick-add", false)
+        ; WinHTTP は既定で古い TLS を選び、Vercel(TLS1.2+必須)に弾かれて
+        ; 「セキュリティで保護されたチャネル」エラー(0x80072F7D)になる。
+        ; Option(9)=SecureProtocols で TLS を明示。まず 1.2+1.3、
+        ; 1.3 非対応の旧 Windows では例外になるので TLS1.2 単体へフォールバック。
+        try {
+            req.Option(9) := 0x2800  ; TLS1.2(0x0800) | TLS1.3(0x2000)
+        } catch {
+            req.Option(9) := 0x0800  ; TLS1.2 のみ（全対応 Windows で有効）
+        }
         ; charset=utf-8 指定により WinHttp が UTF-16 文字列を UTF-8 で送信する
         req.SetRequestHeader("Content-Type", "application/json; charset=utf-8")
         req.SetRequestHeader("X-Api-Key", API_KEY)
