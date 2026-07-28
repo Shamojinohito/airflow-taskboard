@@ -60,7 +60,7 @@ Submit(qaGui, text) {
         req.SetRequestHeader("X-Api-Key", API_KEY)
         req.Send('{"text":' JsonStr(text) ',"source":"windows-ahk"}')
         if (req.Status = 201) {
-            TrayTip(ExtractSummary(req.ResponseText), "✓ Relay に追加しました", "Iconi Mute")
+            TrayTip(ExtractSummary(Utf8Body(req)), "✓ Relay に追加しました", "Iconi Mute")
         } else {
             TrayTip("HTTP " req.Status " — テキストを保持して再表示します", "Relay 送信失敗", "Iconx")
             ShowBox(text)  ; 入力を消失させない
@@ -78,6 +78,22 @@ JsonStr(s) {
     s := StrReplace(s, "`n", "\n")
     s := StrReplace(s, "`t", "\t")
     return '"' s '"'
+}
+
+Utf8Body(req) {
+    ; ResponseText は日本語Windowsの既定CP(CP932)でUTF-8応答を復号し
+    ; 文字化けする。生バイト(ResponseBody)を UTF-8 として復号する。
+    try {
+        body := req.ResponseBody          ; SafeArray(バイト列, VT_UI1)
+        lo := body.MinIndex()
+        n := body.MaxIndex() - lo + 1
+        buf := Buffer(n + 1, 0)           ; 末尾を NUL 終端にする
+        loop n
+            NumPut("UChar", body[lo + A_Index - 1], buf, A_Index - 1)
+        return StrGet(buf, "UTF-8")
+    } catch {
+        return req.ResponseText           ; 取得失敗時は従来動作にフォールバック
+    }
 }
 
 ExtractSummary(json) {
