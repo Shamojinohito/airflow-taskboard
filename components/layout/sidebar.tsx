@@ -87,7 +87,9 @@ function ProjectRow({
         <FolderKanban size={15} className="flex-shrink-0" />
         <span className="truncate">{project.name}</span>
       </Link>
-      <DropdownMenu>
+      {/* modal={false}: 親の Sheet(Dialog) がすでにスクロールロック中。
+          入れ子でロックを重ねると iOS Safari がプロセスクラッシュするため無効化 */}
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger
           className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-100 transition-opacity hover:bg-sidebar-accent hover:text-foreground focus:opacity-100 md:opacity-0 md:group-hover/proj:opacity-100"
           aria-label="Project options"
