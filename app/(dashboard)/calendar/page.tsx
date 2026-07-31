@@ -8,6 +8,7 @@ import {
 import { Inbox } from 'lucide-react'
 import AssignTaskDialog from '@/components/calendar/assign-task-dialog'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
+import MonthView from '@/components/calendar/month-view'
 import UnscheduledTray from '@/components/calendar/unscheduled-tray'
 import WeekView from '@/components/calendar/week-view'
 import TaskDetailPanel from '@/components/tasks/task-detail-panel'
@@ -112,13 +113,23 @@ export default function CalendarPage() {
             />
           </aside>
           <div className="flex-1 overflow-x-auto">
-            <WeekView
-              days={days}
-              tasks={visibleTasks}
-              onTaskClick={setSelectedTaskId}
-              onSchedule={scheduleTask}
-              onSlotSelect={(date, startMinutes) => setAssignTarget({ date, startMinutes })}
-            />
+            {mode === 'week' ? (
+              <WeekView
+                days={days}
+                tasks={visibleTasks}
+                onTaskClick={setSelectedTaskId}
+                onSchedule={scheduleTask}
+                onSlotSelect={(date, startMinutes) => setAssignTarget({ date, startMinutes })}
+              />
+            ) : (
+              <MonthView
+                days={days}
+                month={anchorDate}
+                tasks={visibleTasks}
+                onTaskClick={setSelectedTaskId}
+                onDaySelect={day => { setAnchorDate(day); setMode('week') }}
+              />
+            )}
           </div>
         </div>
       </div>
