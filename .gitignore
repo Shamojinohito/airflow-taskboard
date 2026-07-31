@@ -45,3 +45,7 @@ next-env.d.ts
 
 # quick capture client secrets
 clients/windows/config.ini
+
+# claude code worktrees / subagent-driven-development scratch
+/.claude/worktrees/
+/.superpowers/
