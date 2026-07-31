@@ -215,6 +215,7 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule }: WeekV
                       task={task}
                       position={position}
                       onClick={() => onTaskClick(task.id)}
+                      onSchedule={onSchedule}
                     />
                   )
                 })}
