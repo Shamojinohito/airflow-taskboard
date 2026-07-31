@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useDroppable } from '@dnd-kit/core'
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Bot, CalendarCheck, CheckSquare, ChevronDown, ChevronRight, FolderKanban,
+  Bot, CalendarCheck, CalendarRange, CheckSquare, ChevronDown, ChevronRight, FolderKanban,
   FolderPlus, Inbox, MoreHorizontal, Plus, Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -215,6 +215,11 @@ export default function Sidebar({ className, onNavigate, dndEnabled = false }: S
           <Link href="/today" className={navItemClassName(pathname === '/today')} onClick={onNavigate}>
             <CalendarCheck size={16} />
             <span>Today</span>
+          </Link>
+
+          <Link href="/calendar" className={navItemClassName(pathname === '/calendar')} onClick={onNavigate}>
+            <CalendarRange size={16} />
+            <span>Calendar</span>
           </Link>
 
           {dndEnabled ? (
