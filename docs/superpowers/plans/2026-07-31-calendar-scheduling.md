@@ -2975,6 +2975,22 @@ describe('validateScheduleInput', () => {
     })).toBe('scheduled_start_time and scheduled_end_time must be set together')
   })
 
+  it('片方だけを null にするのもエラー（もう片方がDBに残り CHECK 制約に反するため）', () => {
+    expect(validateScheduleInput({ scheduled_start_time: null }))
+      .toBe('scheduled_start_time and scheduled_end_time must be set together')
+    expect(validateScheduleInput({ scheduled_end_time: null }))
+      .toBe('scheduled_start_time and scheduled_end_time must be set together')
+  })
+
+  it('時刻の範囲外はエラー（DBのTIME型に届く前に弾く）', () => {
+    expect(validateScheduleInput({
+      scheduled_date: '2026-08-05', scheduled_start_time: '25:99', scheduled_end_time: '26:00',
+    })).toBe('scheduled_start_time must be HH:MM or null')
+    expect(validateScheduleInput({
+      scheduled_date: '2026-08-05', scheduled_start_time: '23:59', scheduled_end_time: '24:00',
+    })).toBe('scheduled_end_time must be HH:MM or null')
+  })
+
   it('日付なしで時刻だけはエラー', () => {
     expect(validateScheduleInput({
       scheduled_start_time: '10:00', scheduled_end_time: '12:00',
@@ -3006,7 +3022,8 @@ Expected: FAIL（`Failed to resolve import "./validate-schedule-input"`）
 // route ファイルは named export を増やせない（Next.js が型検査で弾く）ためここに置く。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^\d{2}:\d{2}$/
+// 形だけでなく範囲も見る。25:99 を通すと DB の TIME 型が弾いて 500 になってしまう
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export interface ScheduleInput {
   scheduled_date?: unknown
@@ -3030,6 +3047,13 @@ export function validateScheduleInput(input: ScheduleInput): string | null {
     if (value !== undefined && value !== null && (typeof value !== 'string' || !TIME_RE.test(value))) {
       return `${name} must be HH:MM or null`
     }
+  }
+
+  // 片方のキーだけを送られると、もう片方は DB に残ったまま NULL 化され CHECK 制約に反する
+  // （バリデータはリクエストボディしか見えず、保存済みの値を知らないため）。
+  // 省略も null 化も、必ず2つセットで送らせる
+  if ((start === undefined) !== (end === undefined)) {
+    return 'scheduled_start_time and scheduled_end_time must be set together'
   }
 
   const hasStart = typeof start === 'string'
