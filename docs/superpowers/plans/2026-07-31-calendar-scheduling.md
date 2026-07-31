@@ -2109,7 +2109,7 @@ import に足す:
 
 ```tsx
 import { useDndMonitor, useDroppable } from '@dnd-kit/core'
-import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, parseCalendarDroppableId, toCalendarBlock } from '@/lib/calendar/layout'
+import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
 import {
   buildAllDaySchedule, buildTimedSchedule, DEFAULT_BLOCK_MINUTES, HOUR_HEIGHT_PX, pxToMinutes,
   type TaskSchedule,
