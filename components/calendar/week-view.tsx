@@ -1,9 +1,11 @@
 'use client'
 
-// 週ビュー: 上部に終日行、下に 7日 × 24時間のグリッド。
-// タスクの描画は Task 7、ドロップ受け口は Task 9 で追加する。
-import { useEffect, useRef } from 'react'
+// 週ビュー: 上部に終日行（終日予定 + 締切チップ）、下に 7日 × 24時間のグリッド。
+import { useEffect, useMemo, useRef } from 'react'
 import { format, isToday } from 'date-fns'
+import DueChip from '@/components/calendar/due-chip'
+import TaskBlock from '@/components/calendar/task-block'
+import { layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
 import { HOUR_HEIGHT_PX } from '@/lib/calendar/schedule'
 import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
@@ -13,14 +15,45 @@ const INITIAL_SCROLL_HOUR = 6
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 
+interface DayBuckets {
+  allDay: CalendarTask[]
+  due: CalendarTask[]
+  timed: CalendarTask[]
+}
+
+/** 日付ごとに「終日予定 / 締切 / 時間ブロック」へ振り分ける */
+export function bucketTasksByDay(days: Date[], tasks: CalendarTask[]) {
+  const buckets = new Map<string, DayBuckets>()
+  for (const day of days) {
+    buckets.set(format(day, 'yyyy-MM-dd'), { allDay: [], due: [], timed: [] })
+  }
+
+  for (const task of tasks) {
+    if (task.scheduled_date) {
+      const bucket = buckets.get(task.scheduled_date)
+      if (bucket) {
+        if (task.scheduled_start_time && task.scheduled_end_time) bucket.timed.push(task)
+        else bucket.allDay.push(task)
+      }
+    }
+    if (task.due_date) {
+      const bucket = buckets.get(task.due_date)
+      if (bucket) bucket.due.push(task)
+    }
+  }
+
+  return buckets
+}
+
 interface WeekViewProps {
   days: Date[]
   tasks: CalendarTask[]
   onTaskClick: (taskId: string) => void
 }
 
-export default function WeekView({ days }: WeekViewProps) {
+export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const buckets = useMemo(() => bucketTasksByDay(days, tasks), [days, tasks])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -35,6 +68,7 @@ export default function WeekView({ days }: WeekViewProps) {
         <div className="w-14 shrink-0 border-r border-border" />
         {days.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd')
+          const bucket = buckets.get(dateKey)
           return (
             <div key={dateKey} className="flex-1 border-r border-border last:border-r-0">
               <div className="px-2 py-2 text-center">
@@ -51,7 +85,24 @@ export default function WeekView({ days }: WeekViewProps) {
               <div
                 data-all-day-cell={dateKey}
                 className="min-h-9 space-y-1 border-t border-border px-1 py-1"
-              />
+              >
+                {bucket?.allDay.map(task => (
+                  <button
+                    key={`allday-${task.id}`}
+                    type="button"
+                    onClick={() => onTaskClick(task.id)}
+                    className={cn(
+                      'w-full truncate rounded border border-border bg-card px-1.5 py-0.5 text-left text-[11px] hover:bg-accent',
+                      task.status === 'done' && 'opacity-50 line-through'
+                    )}
+                  >
+                    {task.title}
+                  </button>
+                ))}
+                {bucket?.due.map(task => (
+                  <DueChip key={`due-${task.id}`} task={task} onClick={() => onTaskClick(task.id)} />
+                ))}
+              </div>
             </div>
           )
         })}
@@ -76,6 +127,12 @@ export default function WeekView({ days }: WeekViewProps) {
 
           {days.map(day => {
             const dateKey = format(day, 'yyyy-MM-dd')
+            const timed = buckets.get(dateKey)?.timed ?? []
+            const positions = layoutBlocks(timed.map(task =>
+              toCalendarBlock(task.id, task.scheduled_start_time!, task.scheduled_end_time!)
+            ))
+            const taskById = new Map(timed.map(task => [task.id, task]))
+
             return (
               <div
                 key={dateKey}
@@ -89,6 +146,18 @@ export default function WeekView({ days }: WeekViewProps) {
                     className="border-b border-border/50"
                   />
                 ))}
+                {positions.map(position => {
+                  const task = taskById.get(position.id)
+                  if (!task) return null
+                  return (
+                    <TaskBlock
+                      key={task.id}
+                      task={task}
+                      position={position}
+                      onClick={() => onTaskClick(task.id)}
+                    />
+                  )
+                })}
               </div>
             )
           })}
