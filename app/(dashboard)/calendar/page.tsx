@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import {
-  addDays, addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths,
+  addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format,
+  startOfMonth, startOfWeek, subMonths,
 } from 'date-fns'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
 import WeekView from '@/components/calendar/week-view'
@@ -36,7 +37,9 @@ export default function CalendarPage() {
 
     const start = startOfWeek(startOfMonth(anchorDate), WEEK_OPTIONS)
     const end = endOfWeek(endOfMonth(anchorDate), WEEK_OPTIONS)
-    const dayCount = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+    // endOfWeek は 23:59:59.999 を返すため ms 差の割り算では1日多く数えてしまう。
+    // 暦日の差で数える
+    const dayCount = differenceInCalendarDays(end, start) + 1
     return {
       rangeStart: format(start, 'yyyy-MM-dd'),
       rangeEnd: format(end, 'yyyy-MM-dd'),
