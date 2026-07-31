@@ -5,13 +5,18 @@ import {
   addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format,
   startOfMonth, startOfWeek, subMonths,
 } from 'date-fns'
+import { Inbox } from 'lucide-react'
+import AssignTaskDialog from '@/components/calendar/assign-task-dialog'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
 import UnscheduledTray from '@/components/calendar/unscheduled-tray'
 import WeekView from '@/components/calendar/week-view'
 import TaskDetailPanel from '@/components/tasks/task-detail-panel'
+import { buttonVariants } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useCalendarTasks, useScheduleTask, useUnscheduledTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
 import { useProjects } from '@/hooks/use-projects'
 import { useCalendarRealtime } from '@/hooks/use-realtime'
+import { cn } from '@/lib/utils'
 
 /** 週の開始は日曜（既存の DatePicker と揃える） */
 const WEEK_OPTIONS = { weekStartsOn: 0 } as const
@@ -21,6 +26,8 @@ export default function CalendarPage() {
   const [anchorDate, setAnchorDate] = useState(() => new Date())
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [assignTarget, setAssignTarget] = useState<{ date: string; startMinutes: number | null } | null>(null)
+  const [trayOpen, setTrayOpen] = useState(false)
   const { projects } = useProjects()
   useCalendarRealtime()
 
@@ -110,6 +117,7 @@ export default function CalendarPage() {
               tasks={visibleTasks}
               onTaskClick={setSelectedTaskId}
               onSchedule={scheduleTask}
+              onSlotSelect={(date, startMinutes) => setAssignTarget({ date, startMinutes })}
             />
           </div>
         </div>
@@ -122,6 +130,37 @@ export default function CalendarPage() {
           onClose={() => setSelectedTaskId(null)}
         />
       )}
+
+      <Sheet open={trayOpen} onOpenChange={setTrayOpen}>
+        <SheetTrigger
+          className={cn(buttonVariants({ size: 'sm' }), 'fixed bottom-4 right-4 z-20 gap-1.5 shadow-lg lg:hidden')}
+        >
+          <Inbox size={14} />
+          Unscheduled
+        </SheetTrigger>
+        <SheetContent side="bottom" className="h-[70vh] p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Unscheduled tasks</SheetTitle>
+          </SheetHeader>
+          <UnscheduledTray
+            tasks={visibleUnscheduled}
+            isLoading={unscheduledLoading}
+            onTaskClick={taskId => {
+              setTrayOpen(false)
+              setSelectedTaskId(taskId)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <AssignTaskDialog
+        open={assignTarget !== null}
+        onOpenChange={open => { if (!open) setAssignTarget(null) }}
+        tasks={visibleUnscheduled}
+        defaultDate={assignTarget?.date ?? rangeStart}
+        defaultStartMinutes={assignTarget?.startMinutes ?? null}
+        onAssign={scheduleTask}
+      />
     </div>
   )
 }

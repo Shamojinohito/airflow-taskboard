@@ -9,7 +9,7 @@ import TaskBlock from '@/components/calendar/task-block'
 import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
 import {
   buildAllDaySchedule, buildTimedSchedule, DEFAULT_BLOCK_MINUTES, HOUR_HEIGHT_PX, pxToMinutes,
-  type TaskSchedule,
+  snapStartMinutes, type TaskSchedule,
 } from '@/lib/calendar/schedule'
 import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
@@ -49,7 +49,9 @@ export function bucketTasksByDay(days: Date[], tasks: CalendarTask[]) {
   return buckets
 }
 
-function AllDayDropZone({ date, children }: { date: string; children: React.ReactNode }) {
+function AllDayDropZone({
+  date, onSlotSelect, children,
+}: { date: string; onSlotSelect: (date: string, startMinutes: number | null) => void; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: allDayDroppableId(date),
     data: { type: 'calendar-all-day', date },
@@ -58,6 +60,10 @@ function AllDayDropZone({ date, children }: { date: string; children: React.Reac
   return (
     <div
       ref={setNodeRef}
+      onClick={event => {
+        if (event.target !== event.currentTarget) return
+        onSlotSelect(date, null)
+      }}
       className={cn(
         'min-h-9 space-y-1 border-t border-border px-1 py-1 transition-colors',
         isOver && 'bg-primary/10'
@@ -68,7 +74,9 @@ function AllDayDropZone({ date, children }: { date: string; children: React.Reac
   )
 }
 
-function DayColumnDropZone({ date, children }: { date: string; children: React.ReactNode }) {
+function DayColumnDropZone({
+  date, onSlotSelect, children,
+}: { date: string; onSlotSelect: (date: string, startMinutes: number | null) => void; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: dayColumnDroppableId(date),
     data: { type: 'calendar-day', date },
@@ -77,6 +85,12 @@ function DayColumnDropZone({ date, children }: { date: string; children: React.R
   return (
     <div
       ref={setNodeRef}
+      onClick={event => {
+        // ブロック上のクリックは無視し、空き部分のみ拾う
+        if (event.target !== event.currentTarget && !(event.target as HTMLElement).dataset.slotBackground) return
+        const rect = event.currentTarget.getBoundingClientRect()
+        onSlotSelect(date, snapStartMinutes(pxToMinutes(event.clientY - rect.top)))
+      }}
       className={cn(
         'relative flex-1 border-r border-border last:border-r-0 transition-colors',
         isOver && 'bg-primary/5'
@@ -92,9 +106,10 @@ interface WeekViewProps {
   tasks: CalendarTask[]
   onTaskClick: (taskId: string) => void
   onSchedule: (task: CalendarTask, schedule: TaskSchedule) => void
+  onSlotSelect: (date: string, startMinutes: number | null) => void
 }
 
-export default function WeekView({ days, tasks, onTaskClick, onSchedule }: WeekViewProps) {
+export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotSelect }: WeekViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const buckets = useMemo(() => bucketTasksByDay(days, tasks), [days, tasks])
 
@@ -149,7 +164,7 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule }: WeekV
                   {format(day, 'd')}
                 </div>
               </div>
-              <AllDayDropZone date={dateKey}>
+              <AllDayDropZone date={dateKey} onSlotSelect={onSlotSelect}>
                 {bucket?.allDay.map(task => (
                   <button
                     key={`allday-${task.id}`}
@@ -198,10 +213,11 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule }: WeekV
             const taskById = new Map(timed.map(task => [task.id, task]))
 
             return (
-              <DayColumnDropZone key={dateKey} date={dateKey}>
+              <DayColumnDropZone key={dateKey} date={dateKey} onSlotSelect={onSlotSelect}>
                 {HOURS.map(hour => (
                   <div
                     key={hour}
+                    data-slot-background="1"
                     style={{ height: HOUR_HEIGHT_PX }}
                     className="border-b border-border/50"
                   />
