@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getAgentFromRequest, writeAgentAuditLog } from '@/lib/agents/api'
+import { validateScheduleInput } from '@/lib/calendar/validate-schedule-input'
 
 export async function PATCH(
   request: Request,
@@ -19,6 +20,9 @@ export async function PATCH(
     project_id,
     assignee_agent_id,
     assignee_user_id,
+    scheduled_date,
+    scheduled_start_time,
+    scheduled_end_time,
     status,
     title,
   } = body
@@ -86,6 +90,26 @@ export async function PATCH(
       return NextResponse.json({ error: 'due_date must be YYYY-MM-DD or null' }, { status: 400 })
     }
     updates.due_date = due_date || null
+  }
+
+  const scheduleTouched =
+    scheduled_date !== undefined ||
+    scheduled_start_time !== undefined ||
+    scheduled_end_time !== undefined
+
+  if (scheduleTouched) {
+    const scheduleError = validateScheduleInput({ scheduled_date, scheduled_start_time, scheduled_end_time })
+    if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 400 })
+
+    if (scheduled_date !== undefined) updates.scheduled_date = scheduled_date || null
+    if (scheduled_start_time !== undefined) updates.scheduled_start_time = scheduled_start_time || null
+    if (scheduled_end_time !== undefined) updates.scheduled_end_time = scheduled_end_time || null
+
+    // 日付を外したら時刻も必ず外す（DB の CHECK 制約に合わせる）
+    if (scheduled_date !== undefined && !scheduled_date) {
+      updates.scheduled_start_time = null
+      updates.scheduled_end_time = null
+    }
   }
   if (assignee_user_id !== undefined) {
     updates.assignee_user_id = assignee_user_id

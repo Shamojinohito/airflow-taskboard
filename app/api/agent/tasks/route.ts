@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getAgentFromRequest, writeAgentAuditLog } from '@/lib/agents/api'
+import { validateScheduleInput } from '@/lib/calendar/validate-schedule-input'
 
 export async function GET(request: Request) {
   const agent = await getAgentFromRequest(request, ['read:tasks'])
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'title and project_id required' }, { status: 400 })
   }
 
+  const scheduleError = validateScheduleInput(body)
+  if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 400 })
+
   const supabase = createServiceClient()
   const { data, error } = await (supabase.from('tasks') as any)
     .insert({
@@ -49,6 +53,9 @@ export async function POST(request: Request) {
       priority: body.priority ?? 'medium',
       action_type: body.action_type ?? 'other',
       due_date: body.due_date ?? null,
+      scheduled_date: body.scheduled_date ?? null,
+      scheduled_start_time: body.scheduled_date ? (body.scheduled_start_time ?? null) : null,
+      scheduled_end_time: body.scheduled_date ? (body.scheduled_end_time ?? null) : null,
       handoff_note: body.handoff_note ?? null,
       created_by_agent_id: agent.agentId,
     })
