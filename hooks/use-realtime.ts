@@ -115,6 +115,28 @@ export function useTodayRealtime() {
   }, [queryClient])
 }
 
+export function useCalendarRealtime() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('calendar-tasks')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tasks',
+      }, () => {
+        // カレンダー行は project/tags/agent の join を含み payload には無いため、patch せず refetch する
+        queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+        queryClient.invalidateQueries({ queryKey: ['unscheduled-tasks'] })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [queryClient])
+}
+
 export function useAgentRunsRealtime() {
   const queryClient = useQueryClient()
   const supabase = createClient()
