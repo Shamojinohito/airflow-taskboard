@@ -13,6 +13,15 @@
 ## Global Constraints
 
 - **Next.js 16 は訓練データと異なる。** コードを書く前に `node_modules/next/dist/docs/` の該当ガイドを読むこと（`AGENTS.md` の指示）。
+- **`DropdownMenuItem` のハンドラは `onSelect` ではなく `onClick`。** Base UI の `MenuItem` に
+  `onSelect` は無く、`div` の汎用属性として型チェックを素通りしたうえで一切発火しない（＝黙って死ぬ）。
+  メニューを閉じたくない場合は `closeOnClick={false}` を併用する。既存作法は
+  `components/layout/sidebar.tsx:116`。なお `CommandItem`（cmdk）の `onSelect` は正しいので混同しないこと。
+- **`components/ui/` は Radix ではなく Base UI（`@base-ui/react`）のラッパー。`asChild` は存在しない。**
+  `DropdownMenuTrigger` / `SheetTrigger` / `DialogTrigger` にボタンを入れ子にせず、トリガー自体に
+  className を当てる（既存作法は `components/layout/sidebar.tsx:93`）。ボタン見た目が要る場合は
+  `cn(buttonVariants({ variant, size }), '追加クラス')` を使う（`buttonVariants` は
+  `components/ui/button.tsx` から export 済み）。
 - **既存の `due_date` の型・意味・利用箇所を変更しない。** Today / List / Board / Inbox / My Tasks の挙動は不変であること。
 - **カレンダーに載るのは親タスクのみ**（`parent_task_id IS NULL`）。サブタスクのスケジューリングは対象外。
 - **日をまたぐブロックは作らない。** 終了時刻の上限は `23:59`。
@@ -1098,7 +1107,7 @@ git commit -m "feat(calendar): カレンダーのデータ取得フックとリ�
 // カレンダーのヘッダー。期間移動・週/月トグル・プロジェクトフィルタ。
 import { CalendarRange, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -1173,31 +1182,30 @@ export default function CalendarHeader({
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Filter size={14} />
-              <span className="hidden sm:inline">Projects</span>
-              {filterActive && (
-                <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-[10px]">
-                  {selectedProjectIds.length}
-                </Badge>
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
+          >
+            <Filter size={14} />
+            <span className="hidden sm:inline">Projects</span>
+            {filterActive && (
+              <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-[10px]">
+                {selectedProjectIds.length}
+              </Badge>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-auto">
             <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onClearProjectFilter}>
+            <DropdownMenuItem onClick={onClearProjectFilter}>
               {filterActive ? 'すべて表示' : 'すべて表示（現在）'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {projects.map(project => (
               <DropdownMenuItem
                 key={project.id}
-                onSelect={event => {
-                  event.preventDefault()
-                  onToggleProject(project.id)
-                }}
+                // 複数選択できるよう、トグルしてもメニューを閉じない
+                closeOnClick={false}
+                onClick={() => onToggleProject(project.id)}
                 className={cn(selectedProjectIds.includes(project.id) && 'font-semibold')}
               >
                 <span className="truncate">{project.name}</span>
@@ -1322,7 +1330,8 @@ export default function WeekView({ days }: WeekViewProps) {
 
 import { useMemo, useState } from 'react'
 import {
-  addDays, addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths,
+  addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format,
+  startOfMonth, startOfWeek, subMonths,
 } from 'date-fns'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
 import WeekView from '@/components/calendar/week-view'
@@ -1356,7 +1365,9 @@ export default function CalendarPage() {
 
     const start = startOfWeek(startOfMonth(anchorDate), WEEK_OPTIONS)
     const end = endOfWeek(endOfMonth(anchorDate), WEEK_OPTIONS)
-    const dayCount = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+    // endOfWeek は 23:59:59.999 を返すため ms 差の割り算では1日多く数えてしまう。
+    // 暦日の差で数える
+    const dayCount = differenceInCalendarDays(end, start) + 1
     return {
       rangeStart: format(start, 'yyyy-MM-dd'),
       rangeEnd: format(end, 'yyyy-MM-dd'),
@@ -2101,7 +2112,7 @@ import に足す:
 
 ```tsx
 import { useDndMonitor, useDroppable } from '@dnd-kit/core'
-import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, parseCalendarDroppableId, toCalendarBlock } from '@/lib/calendar/layout'
+import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
 import {
   buildAllDaySchedule, buildTimedSchedule, DEFAULT_BLOCK_MINUTES, HOUR_HEIGHT_PX, pxToMinutes,
   type TaskSchedule,
@@ -2332,18 +2343,15 @@ interface TaskBlockProps {
 
 ```tsx
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="予定のメニュー"
-            className="absolute right-0.5 top-0.5 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent focus:opacity-100 group-hover:opacity-100"
-          >
-            <MoreHorizontal size={12} />
-          </button>
+        <DropdownMenuTrigger
+          aria-label="予定のメニュー"
+          className="absolute right-0.5 top-0.5 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent focus:opacity-100 group-hover:opacity-100"
+        >
+          <MoreHorizontal size={12} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onClick}>詳細を開く</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onSchedule(task, CLEARED_SCHEDULE)}>
+          <DropdownMenuItem onClick={onClick}>詳細を開く</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onSchedule(task, CLEARED_SCHEDULE)}>
             予定を外す
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -2645,8 +2653,9 @@ function AllDayDropZone({
 ```tsx
 import { Inbox } from 'lucide-react'
 import AssignTaskDialog from '@/components/calendar/assign-task-dialog'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 ```
 
 state を追加:
@@ -2666,14 +2675,11 @@ state を追加:
 
 ```tsx
         <Sheet open={trayOpen} onOpenChange={setTrayOpen}>
-          <SheetTrigger asChild>
-            <Button
-              size="sm"
-              className="fixed bottom-4 right-4 z-20 gap-1.5 shadow-lg lg:hidden"
-            >
-              <Inbox size={14} />
-              Unscheduled
-            </Button>
+          <SheetTrigger
+            className={cn(buttonVariants({ size: 'sm' }), 'fixed bottom-4 right-4 z-20 gap-1.5 shadow-lg lg:hidden')}
+          >
+            <Inbox size={14} />
+            Unscheduled
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[70vh] p-0">
             <SheetHeader className="sr-only">
@@ -2969,6 +2975,22 @@ describe('validateScheduleInput', () => {
     })).toBe('scheduled_start_time and scheduled_end_time must be set together')
   })
 
+  it('片方だけを null にするのもエラー（もう片方がDBに残り CHECK 制約に反するため）', () => {
+    expect(validateScheduleInput({ scheduled_start_time: null }))
+      .toBe('scheduled_start_time and scheduled_end_time must be set together')
+    expect(validateScheduleInput({ scheduled_end_time: null }))
+      .toBe('scheduled_start_time and scheduled_end_time must be set together')
+  })
+
+  it('時刻の範囲外はエラー（DBのTIME型に届く前に弾く）', () => {
+    expect(validateScheduleInput({
+      scheduled_date: '2026-08-05', scheduled_start_time: '25:99', scheduled_end_time: '26:00',
+    })).toBe('scheduled_start_time must be HH:MM or null')
+    expect(validateScheduleInput({
+      scheduled_date: '2026-08-05', scheduled_start_time: '23:59', scheduled_end_time: '24:00',
+    })).toBe('scheduled_end_time must be HH:MM or null')
+  })
+
   it('日付なしで時刻だけはエラー', () => {
     expect(validateScheduleInput({
       scheduled_start_time: '10:00', scheduled_end_time: '12:00',
@@ -3000,7 +3022,8 @@ Expected: FAIL（`Failed to resolve import "./validate-schedule-input"`）
 // route ファイルは named export を増やせない（Next.js が型検査で弾く）ためここに置く。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^\d{2}:\d{2}$/
+// 形だけでなく範囲も見る。25:99 を通すと DB の TIME 型が弾いて 500 になってしまう
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export interface ScheduleInput {
   scheduled_date?: unknown
@@ -3024,6 +3047,13 @@ export function validateScheduleInput(input: ScheduleInput): string | null {
     if (value !== undefined && value !== null && (typeof value !== 'string' || !TIME_RE.test(value))) {
       return `${name} must be HH:MM or null`
     }
+  }
+
+  // 片方のキーだけを送られると、もう片方は DB に残ったまま NULL 化され CHECK 制約に反する
+  // （バリデータはリクエストボディしか見えず、保存済みの値を知らないため）。
+  // 省略も null 化も、必ず2つセットで送らせる
+  if ((start === undefined) !== (end === undefined)) {
+    return 'scheduled_start_time and scheduled_end_time must be set together'
   }
 
   const hasStart = typeof start === 'string'

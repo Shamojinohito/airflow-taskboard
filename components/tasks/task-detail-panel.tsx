@@ -68,6 +68,9 @@ export default function TaskDetailPanel({ taskId, projectId, onClose }: TaskDeta
     queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
     queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
     queryClient.invalidateQueries({ queryKey: ['triage-inbox'] })
+    // カレンダーから開いた場合、realtime が落ちていてもグリッド/トレイが古いままにならないように
+    queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['unscheduled-tasks'] })
   }
 
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -86,6 +89,8 @@ export default function TaskDetailPanel({ taskId, projectId, onClose }: TaskDeta
     queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
     queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
     queryClient.invalidateQueries({ queryKey: ['triage-inbox'] })
+    queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['unscheduled-tasks'] })
     setDeleting(false)
     setDeleteOpen(false)
     onClose()
