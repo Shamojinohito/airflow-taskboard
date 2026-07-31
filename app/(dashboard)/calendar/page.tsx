@@ -9,7 +9,7 @@ import CalendarHeader, { type CalendarMode } from '@/components/calendar/calenda
 import UnscheduledTray from '@/components/calendar/unscheduled-tray'
 import WeekView from '@/components/calendar/week-view'
 import TaskDetailPanel from '@/components/tasks/task-detail-panel'
-import { useCalendarTasks, useUnscheduledTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
+import { useCalendarTasks, useScheduleTask, useUnscheduledTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
 import { useProjects } from '@/hooks/use-projects'
 import { useCalendarRealtime } from '@/hooks/use-realtime'
 
@@ -52,6 +52,7 @@ export default function CalendarPage() {
   const { tasks } = useCalendarTasks(rangeStart, rangeEnd)
 
   const { tasks: unscheduledTasks, isLoading: unscheduledLoading } = useUnscheduledTasks()
+  const { scheduleTask } = useScheduleTask(rangeStart, rangeEnd)
 
   const visibleUnscheduled = useMemo(() => {
     if (selectedProjectIds.length === 0) return unscheduledTasks
@@ -104,7 +105,12 @@ export default function CalendarPage() {
             />
           </aside>
           <div className="flex-1 overflow-x-auto">
-            <WeekView days={days} tasks={visibleTasks} onTaskClick={setSelectedTaskId} />
+            <WeekView
+              days={days}
+              tasks={visibleTasks}
+              onTaskClick={setSelectedTaskId}
+              onSchedule={scheduleTask}
+            />
           </div>
         </div>
       </div>

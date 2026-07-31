@@ -1,8 +1,9 @@
 'use client'
 
 // 時間グリッド上の予定ブロック。ドラッグとリサイズは後続タスクで追加する。
+import { useDraggable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
-import { minutesToPx } from '@/lib/calendar/schedule'
+import { getDurationMinutes, minutesToPx } from '@/lib/calendar/schedule'
 import type { PositionedBlock } from '@/lib/calendar/layout'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
 
@@ -20,13 +21,17 @@ interface TaskBlockProps {
 }
 
 export default function TaskBlock({ task, position, onClick }: TaskBlockProps) {
+  const durationMinutes = getDurationMinutes(task) ?? undefined
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `calendar-block-${task.id}`,
+    data: { type: 'task', source: 'calendar', durationMinutes, task },
+  })
+
   const done = task.status === 'done'
   const top = minutesToPx(position.startMinutes)
   const height = Math.max(18, minutesToPx(position.endMinutes - position.startMinutes) - 2)
   const widthPercent = 100 / position.columnCount
-  const startLabel = task.scheduled_start_time
-    ? task.scheduled_start_time.slice(0, 5)
-    : ''
+  const startLabel = task.scheduled_start_time ? task.scheduled_start_time.slice(0, 5) : ''
 
   return (
     <div
@@ -39,12 +44,16 @@ export default function TaskBlock({ task, position, onClick }: TaskBlockProps) {
       className="absolute px-px"
     >
       <button
+        ref={setNodeRef}
         type="button"
         onClick={onClick}
+        {...listeners}
+        {...attributes}
         className={cn(
           'flex h-full w-full flex-col overflow-hidden rounded border border-l-2 border-border bg-card px-1.5 py-0.5 text-left shadow-sm transition-colors hover:bg-accent',
           PRIORITY_ACCENT[task.priority] ?? 'border-l-border',
-          done && 'opacity-50'
+          done && 'opacity-50',
+          isDragging && 'opacity-40'
         )}
       >
         <span className={cn('truncate text-[11px] font-medium leading-tight', done && 'line-through')}>

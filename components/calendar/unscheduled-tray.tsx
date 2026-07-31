@@ -2,6 +2,7 @@
 
 // まだ予定に入っていないタスクの置き場。ここからカレンダーへドラッグして割り当てる。
 import { Inbox } from 'lucide-react'
+import { useDraggable } from '@dnd-kit/core'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -23,13 +24,22 @@ interface UnscheduledTrayProps {
 export function UnscheduledTaskCard({
   task, onClick,
 }: { task: CalendarTask; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `tray-${task.id}`,
+    data: { type: 'task', source: 'tray', task },
+  })
+
   return (
     <button
+      ref={setNodeRef}
       type="button"
       onClick={onClick}
+      {...listeners}
+      {...attributes}
       className={cn(
         'w-full rounded-md border border-l-2 border-border bg-card px-2.5 py-2 text-left transition-colors hover:bg-accent',
-        PRIORITY_ACCENT[task.priority] ?? 'border-l-border'
+        PRIORITY_ACCENT[task.priority] ?? 'border-l-border',
+        isDragging && 'opacity-40'
       )}
     >
       <div className="truncate text-xs font-medium">{task.title}</div>

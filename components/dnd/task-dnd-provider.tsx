@@ -15,8 +15,10 @@ import { TaskCard } from '@/components/board/task-card'
 
 export interface TaskDragData {
   type: 'task'
-  source: 'board' | 'list'
+  source: 'board' | 'list' | 'calendar' | 'tray'
   listId?: string
+  /** 時間ブロックを移動するとき、元の長さ（分）を保つために持ち回る */
+  durationMinutes?: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   task: any
 }
@@ -46,6 +48,13 @@ export default function TaskDndProvider({ children }: { children: ReactNode }) {
     const sidebarCollision = collisions.find(collision => isSidebarId(collision.id))
     if (sidebarCollision) return [sidebarCollision]
 
+    // カレンダーのドロップ先はボード/リストの行より優先する
+    const calendarCollision = collisions.find(collision => {
+      const type = collision.data?.droppableContainer.data.current?.type
+      return type === 'calendar-day' || type === 'calendar-all-day'
+    })
+    if (calendarCollision) return [calendarCollision]
+
     const taskCollision = collisions.find(collision =>
       collision.data?.droppableContainer.data.current?.type === 'task'
     )
@@ -71,6 +80,8 @@ export default function TaskDndProvider({ children }: { children: ReactNode }) {
     queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
     queryClient.invalidateQueries({ queryKey: ['today-tasks'] })
     queryClient.invalidateQueries({ queryKey: ['triage-inbox'] })
+    queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['unscheduled-tasks'] })
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {

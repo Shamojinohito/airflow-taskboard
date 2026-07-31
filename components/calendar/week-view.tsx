@@ -3,10 +3,14 @@
 // 週ビュー: 上部に終日行（終日予定 + 締切チップ）、下に 7日 × 24時間のグリッド。
 import { useEffect, useMemo, useRef } from 'react'
 import { format, isToday } from 'date-fns'
+import { useDndMonitor, useDroppable } from '@dnd-kit/core'
 import DueChip from '@/components/calendar/due-chip'
 import TaskBlock from '@/components/calendar/task-block'
-import { layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
-import { HOUR_HEIGHT_PX } from '@/lib/calendar/schedule'
+import { allDayDroppableId, dayColumnDroppableId, layoutBlocks, toCalendarBlock } from '@/lib/calendar/layout'
+import {
+  buildAllDaySchedule, buildTimedSchedule, DEFAULT_BLOCK_MINUTES, HOUR_HEIGHT_PX, pxToMinutes,
+  type TaskSchedule,
+} from '@/lib/calendar/schedule'
 import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
 
@@ -45,15 +49,78 @@ export function bucketTasksByDay(days: Date[], tasks: CalendarTask[]) {
   return buckets
 }
 
+function AllDayDropZone({ date, children }: { date: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: allDayDroppableId(date),
+    data: { type: 'calendar-all-day', date },
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'min-h-9 space-y-1 border-t border-border px-1 py-1 transition-colors',
+        isOver && 'bg-primary/10'
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function DayColumnDropZone({ date, children }: { date: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: dayColumnDroppableId(date),
+    data: { type: 'calendar-day', date },
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'relative flex-1 border-r border-border last:border-r-0 transition-colors',
+        isOver && 'bg-primary/5'
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
 interface WeekViewProps {
   days: Date[]
   tasks: CalendarTask[]
   onTaskClick: (taskId: string) => void
+  onSchedule: (task: CalendarTask, schedule: TaskSchedule) => void
 }
 
-export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
+export default function WeekView({ days, tasks, onTaskClick, onSchedule }: WeekViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const buckets = useMemo(() => bucketTasksByDay(days, tasks), [days, tasks])
+
+  useDndMonitor({
+    onDragEnd: event => {
+      const dragged = event.active.data.current as
+        | { type?: string; source?: string; durationMinutes?: number; task?: CalendarTask }
+        | undefined
+      const dropped = event.over?.data.current as { type?: string; date?: string } | undefined
+      if (!dragged?.task || dragged.type !== 'task' || !dropped?.date) return
+
+      if (dropped.type === 'calendar-all-day') {
+        onSchedule(dragged.task, buildAllDaySchedule(dropped.date))
+        return
+      }
+
+      if (dropped.type !== 'calendar-day' || !event.over) return
+
+      // ドラッグ中の要素の上端が、日カラムの上端から何px下にあるかで開始時刻を決める
+      const draggedTop = event.active.rect.current.translated?.top ?? 0
+      const columnTop = event.over.rect.top
+      const minutes = pxToMinutes(draggedTop - columnTop)
+      const duration = dragged.durationMinutes ?? DEFAULT_BLOCK_MINUTES
+      onSchedule(dragged.task, buildTimedSchedule(dropped.date, minutes, duration))
+    },
+  })
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,10 +149,7 @@ export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
                   {format(day, 'd')}
                 </div>
               </div>
-              <div
-                data-all-day-cell={dateKey}
-                className="min-h-9 space-y-1 border-t border-border px-1 py-1"
-              >
+              <AllDayDropZone date={dateKey}>
                 {bucket?.allDay.map(task => (
                   <button
                     key={`allday-${task.id}`}
@@ -102,7 +166,7 @@ export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
                 {bucket?.due.map(task => (
                   <DueChip key={`due-${task.id}`} task={task} onClick={() => onTaskClick(task.id)} />
                 ))}
-              </div>
+              </AllDayDropZone>
             </div>
           )
         })}
@@ -134,11 +198,7 @@ export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
             const taskById = new Map(timed.map(task => [task.id, task]))
 
             return (
-              <div
-                key={dateKey}
-                data-day-column={dateKey}
-                className="relative flex-1 border-r border-border last:border-r-0"
-              >
+              <DayColumnDropZone key={dateKey} date={dateKey}>
                 {HOURS.map(hour => (
                   <div
                     key={hour}
@@ -158,7 +218,7 @@ export default function WeekView({ days, tasks, onTaskClick }: WeekViewProps) {
                     />
                   )
                 })}
-              </div>
+              </DayColumnDropZone>
             )
           })}
         </div>
