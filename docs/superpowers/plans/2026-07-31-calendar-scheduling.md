@@ -13,6 +13,10 @@
 ## Global Constraints
 
 - **Next.js 16 は訓練データと異なる。** コードを書く前に `node_modules/next/dist/docs/` の該当ガイドを読むこと（`AGENTS.md` の指示）。
+- **`DropdownMenuItem` のハンドラは `onSelect` ではなく `onClick`。** Base UI の `MenuItem` に
+  `onSelect` は無く、`div` の汎用属性として型チェックを素通りしたうえで一切発火しない（＝黙って死ぬ）。
+  メニューを閉じたくない場合は `closeOnClick={false}` を併用する。既存作法は
+  `components/layout/sidebar.tsx:116`。なお `CommandItem`（cmdk）の `onSelect` は正しいので混同しないこと。
 - **`components/ui/` は Radix ではなく Base UI（`@base-ui/react`）のラッパー。`asChild` は存在しない。**
   `DropdownMenuTrigger` / `SheetTrigger` / `DialogTrigger` にボタンを入れ子にせず、トリガー自体に
   className を当てる（既存作法は `components/layout/sidebar.tsx:93`）。ボタン見た目が要る場合は
@@ -1192,17 +1196,16 @@ export default function CalendarHeader({
           <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-auto">
             <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onClearProjectFilter}>
+            <DropdownMenuItem onClick={onClearProjectFilter}>
               {filterActive ? 'すべて表示' : 'すべて表示（現在）'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {projects.map(project => (
               <DropdownMenuItem
                 key={project.id}
-                onSelect={event => {
-                  event.preventDefault()
-                  onToggleProject(project.id)
-                }}
+                // 複数選択できるよう、トグルしてもメニューを閉じない
+                closeOnClick={false}
+                onClick={() => onToggleProject(project.id)}
                 className={cn(selectedProjectIds.includes(project.id) && 'font-semibold')}
               >
                 <span className="truncate">{project.name}</span>
@@ -2347,8 +2350,8 @@ interface TaskBlockProps {
           <MoreHorizontal size={12} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onClick}>詳細を開く</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onSchedule(task, CLEARED_SCHEDULE)}>
+          <DropdownMenuItem onClick={onClick}>詳細を開く</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onSchedule(task, CLEARED_SCHEDULE)}>
             予定を外す
           </DropdownMenuItem>
         </DropdownMenuContent>
