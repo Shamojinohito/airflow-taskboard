@@ -2,14 +2,15 @@
 
 // 月ビュー（俯瞰用）。セル内は 終日予定 → 時間ブロック（開始時刻順）で並べ、
 // 入りきらない分は「他 N 件」に畳む。日付をクリックすると週ビューへ移る。
+import { useMemo } from 'react'
 import { format, isSameMonth, isToday } from 'date-fns'
 import DueChip from '@/components/calendar/due-chip'
-import { bucketTasksByDay } from '@/components/calendar/week-view'
+import { bucketTasksByDay } from '@/lib/calendar/buckets'
 import { timeToMinutes } from '@/lib/calendar/schedule'
 import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
 
-/** 1セルに出す予定チップの上限 */
+/** 1セルに出すチップ（予定 + 締切）の上限 */
 const MAX_CHIPS_PER_DAY = 3
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -18,12 +19,15 @@ interface MonthViewProps {
   days: Date[]
   month: Date
   tasks: CalendarTask[]
-  onTaskClick: (taskId: string) => void
+  onTaskClick: (task: CalendarTask) => void
   onDaySelect: (date: Date) => void
 }
 
+type Chip = { kind: 'scheduled'; task: CalendarTask } | { kind: 'due'; task: CalendarTask }
+
 export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect }: MonthViewProps) {
-  const buckets = bucketTasksByDay(days, tasks)
+  const dateKeys = useMemo(() => days.map(day => format(day, 'yyyy-MM-dd')), [days])
+  const buckets = useMemo(() => bucketTasksByDay(dateKeys, tasks), [dateKeys, tasks])
 
   return (
     <div className="flex h-full min-w-[640px] flex-col">
@@ -39,15 +43,16 @@ export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect
         {days.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd')
           const bucket = buckets.get(dateKey)
-          // 終日予定 → 時間ブロック（開始時刻順）
-          const scheduled = [
-            ...(bucket?.allDay ?? []),
-            ...[...(bucket?.timed ?? [])].sort((a, b) =>
-              timeToMinutes(a.scheduled_start_time!) - timeToMinutes(b.scheduled_start_time!)
-            ),
+          // 終日予定 → 時間ブロック（開始時刻順）→ 締切チップ。折り畳みは合計件数に対して掛ける
+          const chips: Chip[] = [
+            ...(bucket?.allDay ?? []).map(task => ({ kind: 'scheduled', task }) as const),
+            ...[...(bucket?.timed ?? [])]
+              .sort((a, b) => timeToMinutes(a.scheduled_start_time!) - timeToMinutes(b.scheduled_start_time!))
+              .map(task => ({ kind: 'scheduled', task }) as const),
+            ...(bucket?.due ?? []).map(task => ({ kind: 'due', task }) as const),
           ]
-          const shown = scheduled.slice(0, MAX_CHIPS_PER_DAY)
-          const hiddenCount = scheduled.length - shown.length
+          const shown = chips.slice(0, MAX_CHIPS_PER_DAY)
+          const hiddenCount = chips.length - shown.length
 
           return (
             <div
@@ -69,22 +74,24 @@ export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect
                 {format(day, 'd')}
               </button>
 
-              {shown.map(task => (
+              {shown.map(chip => chip.kind === 'due' ? (
+                <DueChip key={`d-${chip.task.id}`} task={chip.task} onClick={() => onTaskClick(chip.task)} />
+              ) : (
                 <button
-                  key={`s-${task.id}`}
+                  key={`s-${chip.task.id}`}
                   type="button"
-                  onClick={() => onTaskClick(task.id)}
+                  onClick={() => onTaskClick(chip.task)}
                   className={cn(
                     'flex w-full items-center gap-1 truncate rounded border border-border bg-card px-1 py-0.5 text-left text-[10px] hover:bg-accent',
-                    task.status === 'done' && 'opacity-50 line-through'
+                    chip.task.status === 'done' && 'opacity-50 line-through'
                   )}
                 >
-                  {task.scheduled_start_time && (
+                  {chip.task.scheduled_start_time && (
                     <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {task.scheduled_start_time.slice(0, 5)}
+                      {chip.task.scheduled_start_time.slice(0, 5)}
                     </span>
                   )}
-                  <span className="truncate">{task.title}</span>
+                  <span className="truncate">{chip.task.title}</span>
                 </button>
               ))}
 
@@ -97,10 +104,6 @@ export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect
                   他 {hiddenCount} 件
                 </button>
               )}
-
-              {bucket?.due.map(task => (
-                <DueChip key={`d-${task.id}`} task={task} onClick={() => onTaskClick(task.id)} />
-              ))}
             </div>
           )
         })}

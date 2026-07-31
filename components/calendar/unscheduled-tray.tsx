@@ -18,14 +18,16 @@ const PRIORITY_ACCENT: Record<string, string> = {
 interface UnscheduledTrayProps {
   tasks: CalendarTask[]
   isLoading: boolean
-  onTaskClick: (taskId: string) => void
+  onTaskClick: (task: CalendarTask) => void
+  /** トレイは aside と Sheet の2箇所に同時マウントされうるため、dnd-kit の draggable ID を区別する */
+  idPrefix: string
 }
 
 export function UnscheduledTaskCard({
-  task, onClick,
-}: { task: CalendarTask; onClick: () => void }) {
+  task, onClick, idPrefix,
+}: { task: CalendarTask; onClick: () => void; idPrefix: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `tray-${task.id}`,
+    id: `${idPrefix}-${task.id}`,
     data: { type: 'task', source: 'tray', task },
   })
 
@@ -55,7 +57,7 @@ export function UnscheduledTaskCard({
   )
 }
 
-export default function UnscheduledTray({ tasks, isLoading, onTaskClick }: UnscheduledTrayProps) {
+export default function UnscheduledTray({ tasks, isLoading, onTaskClick, idPrefix }: UnscheduledTrayProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-3">
@@ -83,7 +85,8 @@ export default function UnscheduledTray({ tasks, isLoading, onTaskClick }: Unsch
           <UnscheduledTaskCard
             key={task.id}
             task={task}
-            onClick={() => onTaskClick(task.id)}
+            onClick={() => onTaskClick(task)}
+            idPrefix={idPrefix}
           />
         ))}
       </div>

@@ -26,7 +26,7 @@ export default function CalendarPage() {
   const [mode, setMode] = useState<CalendarMode>('week')
   const [anchorDate, setAnchorDate] = useState(() => new Date())
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTask, setSelectedTask] = useState<{ id: string; projectId: string } | null>(null)
   const [assignTarget, setAssignTarget] = useState<{ date: string; startMinutes: number | null } | null>(null)
   const [trayOpen, setTrayOpen] = useState(false)
   const { projects } = useProjects()
@@ -84,9 +84,7 @@ export default function CalendarPage() {
       : [...current, projectId])
   }
 
-  const selectedTask =
-    visibleTasks.find((task: CalendarTask) => task.id === selectedTaskId) ??
-    visibleUnscheduled.find((task: CalendarTask) => task.id === selectedTaskId)
+  const openTaskDetail = (task: CalendarTask) => setSelectedTask({ id: task.id, projectId: task.project_id })
 
   return (
     <div className="flex h-full">
@@ -109,7 +107,8 @@ export default function CalendarPage() {
             <UnscheduledTray
               tasks={visibleUnscheduled}
               isLoading={unscheduledLoading}
-              onTaskClick={setSelectedTaskId}
+              onTaskClick={openTaskDetail}
+              idPrefix="tray"
             />
           </aside>
           <div className="flex-1 overflow-x-auto">
@@ -117,7 +116,7 @@ export default function CalendarPage() {
               <WeekView
                 days={days}
                 tasks={visibleTasks}
-                onTaskClick={setSelectedTaskId}
+                onTaskClick={openTaskDetail}
                 onSchedule={scheduleTask}
                 onSlotSelect={(date, startMinutes) => setAssignTarget({ date, startMinutes })}
               />
@@ -126,7 +125,7 @@ export default function CalendarPage() {
                 days={days}
                 month={anchorDate}
                 tasks={visibleTasks}
-                onTaskClick={setSelectedTaskId}
+                onTaskClick={openTaskDetail}
                 onDaySelect={day => { setAnchorDate(day); setMode('week') }}
               />
             )}
@@ -134,11 +133,11 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {selectedTaskId && selectedTask && (
+      {selectedTask && (
         <TaskDetailPanel
-          taskId={selectedTaskId}
-          projectId={selectedTask.project_id}
-          onClose={() => setSelectedTaskId(null)}
+          taskId={selectedTask.id}
+          projectId={selectedTask.projectId}
+          onClose={() => setSelectedTask(null)}
         />
       )}
 
@@ -156,10 +155,11 @@ export default function CalendarPage() {
           <UnscheduledTray
             tasks={visibleUnscheduled}
             isLoading={unscheduledLoading}
-            onTaskClick={taskId => {
+            onTaskClick={task => {
               setTrayOpen(false)
-              setSelectedTaskId(taskId)
+              openTaskDetail(task)
             }}
+            idPrefix="sheet-tray"
           />
         </SheetContent>
       </Sheet>
