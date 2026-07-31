@@ -89,6 +89,9 @@ export function useUnscheduledTasks() {
         .is('parent_task_id', null)
         .is('scheduled_date', null)
         .neq('status', 'done')
+        // 上限100件の「選び方」を締切優先にする。優先度は TEXT で SQL 上意味のある順序にならないため、
+        // ここでは締切のみで絞り込み、compareUnscheduledTasks でクライアント側の表示順を作る。
+        .order('due_date', { ascending: true, nullsFirst: false })
         .limit(100)
 
       if (error) throw error

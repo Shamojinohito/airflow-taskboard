@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { minutesToTime, SLOT_MINUTES, buildAllDaySchedule, buildTimedSchedule, type TaskSchedule } from '@/lib/calendar/schedule'
+import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
 
 /** 00:00 から 23:30 までの 30分刻み */
@@ -56,6 +57,9 @@ export default function AssignTaskDialog({
   }
 
   const assign = (task: CalendarTask) => {
+    // DatePicker のテキスト欄がクリアされると onChange('') が来る。空日付のまま保存すると
+    // 終日枠は DB 制約を素通りして 400 になり、時間枠は buildTimedSchedule 前で弾かれず例外になる。
+    if (!date) return
     const schedule = startMinutes === null
       ? buildAllDaySchedule(date)
       : buildTimedSchedule(date, startMinutes, durationMinutes)
@@ -65,7 +69,7 @@ export default function AssignTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>タスクを予定に入れる</DialogTitle>
         </DialogHeader>
@@ -112,15 +116,15 @@ export default function AssignTaskDialog({
 
           <div className="space-y-1.5">
             <Label>タスク</Label>
-            <Command className="rounded-md border border-border">
-              <CommandInput placeholder="タスクを検索..." />
+            <Command className={cn('rounded-md border border-border', !date && 'pointer-events-none opacity-50')}>
+              <CommandInput placeholder="タスクを検索..." disabled={!date} />
               <CommandList className="max-h-56">
                 <CommandEmpty>該当するタスクがありません。</CommandEmpty>
                 <CommandGroup>
                   {tasks.map(task => (
                     <CommandItem
                       key={task.id}
-                      value={`${task.title} ${task.project?.name ?? ''}`}
+                      value={`${task.title} ${task.project?.name ?? ''} ${task.id}`}
                       onSelect={() => assign(task)}
                     >
                       <span className="truncate">{task.title}</span>
