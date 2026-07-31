@@ -56,9 +56,14 @@ export default function TaskBlock({ task, position, onClick, onSchedule }: TaskB
       setDraftDuration(snapDurationMinutes(originDuration + delta))
     }
 
-    const handleUp = (upEvent: PointerEvent) => {
+    const cleanup = () => {
       target.removeEventListener('pointermove', handleMove)
       target.removeEventListener('pointerup', handleUp)
+      target.removeEventListener('pointercancel', handleCancel)
+    }
+
+    const handleUp = (upEvent: PointerEvent) => {
+      cleanup()
       const delta = pxToMinutes(upEvent.clientY - startY)
       const nextDuration = snapDurationMinutes(originDuration + delta)
       setDraftDuration(null)
@@ -71,8 +76,15 @@ export default function TaskBlock({ task, position, onClick, onSchedule }: TaskB
       }
     }
 
+    // ジェスチャーが取り消された場合はリサイズを破棄するだけで、保存はしない
+    const handleCancel = () => {
+      cleanup()
+      setDraftDuration(null)
+    }
+
     target.addEventListener('pointermove', handleMove)
     target.addEventListener('pointerup', handleUp)
+    target.addEventListener('pointercancel', handleCancel)
   }
 
   const done = task.status === 'done'

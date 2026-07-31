@@ -92,17 +92,16 @@ export default function CalendarHeader({
           <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-auto">
             <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onClearProjectFilter}>
+            <DropdownMenuItem onClick={onClearProjectFilter}>
               {filterActive ? 'すべて表示' : 'すべて表示（現在）'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {projects.map(project => (
               <DropdownMenuItem
                 key={project.id}
-                onSelect={event => {
-                  event.preventDefault()
-                  onToggleProject(project.id)
-                }}
+                // 複数選択できるよう、トグルしてもメニューを閉じない
+                closeOnClick={false}
+                onClick={() => onToggleProject(project.id)}
                 className={cn(selectedProjectIds.includes(project.id) && 'font-semibold')}
               >
                 <span className="truncate">{project.name}</span>
