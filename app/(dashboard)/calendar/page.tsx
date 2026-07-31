@@ -6,9 +6,10 @@ import {
   startOfMonth, startOfWeek, subMonths,
 } from 'date-fns'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
+import UnscheduledTray from '@/components/calendar/unscheduled-tray'
 import WeekView from '@/components/calendar/week-view'
 import TaskDetailPanel from '@/components/tasks/task-detail-panel'
-import { useCalendarTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
+import { useCalendarTasks, useUnscheduledTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
 import { useProjects } from '@/hooks/use-projects'
 import { useCalendarRealtime } from '@/hooks/use-realtime'
 
@@ -50,6 +51,13 @@ export default function CalendarPage() {
 
   const { tasks } = useCalendarTasks(rangeStart, rangeEnd)
 
+  const { tasks: unscheduledTasks, isLoading: unscheduledLoading } = useUnscheduledTasks()
+
+  const visibleUnscheduled = useMemo(() => {
+    if (selectedProjectIds.length === 0) return unscheduledTasks
+    return unscheduledTasks.filter(task => selectedProjectIds.includes(task.project_id))
+  }, [unscheduledTasks, selectedProjectIds])
+
   const visibleTasks = useMemo(() => {
     if (selectedProjectIds.length === 0) return tasks
     return tasks.filter(task => selectedProjectIds.includes(task.project_id))
@@ -67,7 +75,9 @@ export default function CalendarPage() {
       : [...current, projectId])
   }
 
-  const selectedTask = visibleTasks.find((task: CalendarTask) => task.id === selectedTaskId)
+  const selectedTask =
+    visibleTasks.find((task: CalendarTask) => task.id === selectedTaskId) ??
+    visibleUnscheduled.find((task: CalendarTask) => task.id === selectedTaskId)
 
   return (
     <div className="flex h-full">
@@ -85,8 +95,17 @@ export default function CalendarPage() {
           onClearProjectFilter={() => setSelectedProjectIds([])}
         />
 
-        <div className="flex-1 overflow-x-auto">
-          <WeekView days={days} tasks={visibleTasks} onTaskClick={setSelectedTaskId} />
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="hidden w-60 shrink-0 border-r border-border lg:block">
+            <UnscheduledTray
+              tasks={visibleUnscheduled}
+              isLoading={unscheduledLoading}
+              onTaskClick={setSelectedTaskId}
+            />
+          </aside>
+          <div className="flex-1 overflow-x-auto">
+            <WeekView days={days} tasks={visibleTasks} onTaskClick={setSelectedTaskId} />
+          </div>
         </div>
       </div>
 
