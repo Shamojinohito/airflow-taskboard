@@ -2,7 +2,8 @@
 // route ファイルは named export を増やせない（Next.js が型検査で弾く）ためここに置く。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^\d{2}:\d{2}$/
+// 形だけでなく範囲も見る。25:99 を通すと DB の TIME 型が弾いて 500 になってしまう
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export interface ScheduleInput {
   scheduled_date?: unknown
@@ -26,6 +27,13 @@ export function validateScheduleInput(input: ScheduleInput): string | null {
     if (value !== undefined && value !== null && (typeof value !== 'string' || !TIME_RE.test(value))) {
       return `${name} must be HH:MM or null`
     }
+  }
+
+  // 片方のキーだけを送られると、もう片方は DB に残ったまま NULL 化され CHECK 制約に反する
+  // （バリデータはリクエストボディしか見えず、保存済みの値を知らないため）。
+  // 省略も null 化も、必ず2つセットで送らせる
+  if ((start === undefined) !== (end === undefined)) {
+    return 'scheduled_start_time and scheduled_end_time must be set together'
   }
 
   const hasStart = typeof start === 'string'
