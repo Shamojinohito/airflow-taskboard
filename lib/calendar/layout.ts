@@ -2,28 +2,12 @@
 
 import { timeToMinutes } from './schedule'
 
-const DATE_PATTERN = '(\\d{4}-\\d{2}-\\d{2})'
-const DAY_ID_RE = new RegExp(`^calendar-day-${DATE_PATTERN}$`)
-const ALL_DAY_ID_RE = new RegExp(`^calendar-allday-${DATE_PATTERN}$`)
-
 export function dayColumnDroppableId(date: string): string {
   return `calendar-day-${date}`
 }
 
 export function allDayDroppableId(date: string): string {
   return `calendar-allday-${date}`
-}
-
-export function parseCalendarDroppableId(
-  id: string,
-): { kind: 'day' | 'all-day'; date: string } | null {
-  const day = DAY_ID_RE.exec(id)
-  if (day) return { kind: 'day', date: day[1] }
-
-  const allDay = ALL_DAY_ID_RE.exec(id)
-  if (allDay) return { kind: 'all-day', date: allDay[1] }
-
-  return null
 }
 
 export interface CalendarBlock {

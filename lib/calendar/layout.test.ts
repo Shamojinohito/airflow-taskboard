@@ -3,7 +3,6 @@ import {
   allDayDroppableId,
   dayColumnDroppableId,
   layoutBlocks,
-  parseCalendarDroppableId,
   toCalendarBlock,
 } from './layout'
 
@@ -11,20 +10,6 @@ describe('droppable id', () => {
   it('日カラムと終日行の ID を作る', () => {
     expect(dayColumnDroppableId('2026-08-03')).toBe('calendar-day-2026-08-03')
     expect(allDayDroppableId('2026-08-03')).toBe('calendar-allday-2026-08-03')
-  })
-
-  it('作った ID を解析できる', () => {
-    expect(parseCalendarDroppableId('calendar-day-2026-08-03'))
-      .toEqual({ kind: 'day', date: '2026-08-03' })
-    expect(parseCalendarDroppableId('calendar-allday-2026-08-03'))
-      .toEqual({ kind: 'all-day', date: '2026-08-03' })
-  })
-
-  it('カレンダー以外の ID は null（サイドバーやボードのドロップ先と衝突しない）', () => {
-    expect(parseCalendarDroppableId('sidebar-my-tasks')).toBeNull()
-    expect(parseCalendarDroppableId('column-todo')).toBeNull()
-    expect(parseCalendarDroppableId('calendar-day-2026-8-3')).toBeNull()
-    expect(parseCalendarDroppableId('')).toBeNull()
   })
 })
 
