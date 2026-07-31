@@ -13,6 +13,11 @@
 ## Global Constraints
 
 - **Next.js 16 は訓練データと異なる。** コードを書く前に `node_modules/next/dist/docs/` の該当ガイドを読むこと（`AGENTS.md` の指示）。
+- **`components/ui/` は Radix ではなく Base UI（`@base-ui/react`）のラッパー。`asChild` は存在しない。**
+  `DropdownMenuTrigger` / `SheetTrigger` / `DialogTrigger` にボタンを入れ子にせず、トリガー自体に
+  className を当てる（既存作法は `components/layout/sidebar.tsx:93`）。ボタン見た目が要る場合は
+  `cn(buttonVariants({ variant, size }), '追加クラス')` を使う（`buttonVariants` は
+  `components/ui/button.tsx` から export 済み）。
 - **既存の `due_date` の型・意味・利用箇所を変更しない。** Today / List / Board / Inbox / My Tasks の挙動は不変であること。
 - **カレンダーに載るのは親タスクのみ**（`parent_task_id IS NULL`）。サブタスクのスケジューリングは対象外。
 - **日をまたぐブロックは作らない。** 終了時刻の上限は `23:59`。
@@ -1098,7 +1103,7 @@ git commit -m "feat(calendar): カレンダーのデータ取得フックとリ�
 // カレンダーのヘッダー。期間移動・週/月トグル・プロジェクトフィルタ。
 import { CalendarRange, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -1173,16 +1178,16 @@ export default function CalendarHeader({
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Filter size={14} />
-              <span className="hidden sm:inline">Projects</span>
-              {filterActive && (
-                <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-[10px]">
-                  {selectedProjectIds.length}
-                </Badge>
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
+          >
+            <Filter size={14} />
+            <span className="hidden sm:inline">Projects</span>
+            {filterActive && (
+              <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-[10px]">
+                {selectedProjectIds.length}
+              </Badge>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-auto">
             <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
@@ -2332,14 +2337,11 @@ interface TaskBlockProps {
 
 ```tsx
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="予定のメニュー"
-            className="absolute right-0.5 top-0.5 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent focus:opacity-100 group-hover:opacity-100"
-          >
-            <MoreHorizontal size={12} />
-          </button>
+        <DropdownMenuTrigger
+          aria-label="予定のメニュー"
+          className="absolute right-0.5 top-0.5 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent focus:opacity-100 group-hover:opacity-100"
+        >
+          <MoreHorizontal size={12} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={onClick}>詳細を開く</DropdownMenuItem>
@@ -2645,8 +2647,9 @@ function AllDayDropZone({
 ```tsx
 import { Inbox } from 'lucide-react'
 import AssignTaskDialog from '@/components/calendar/assign-task-dialog'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 ```
 
 state を追加:
@@ -2666,14 +2669,11 @@ state を追加:
 
 ```tsx
         <Sheet open={trayOpen} onOpenChange={setTrayOpen}>
-          <SheetTrigger asChild>
-            <Button
-              size="sm"
-              className="fixed bottom-4 right-4 z-20 gap-1.5 shadow-lg lg:hidden"
-            >
-              <Inbox size={14} />
-              Unscheduled
-            </Button>
+          <SheetTrigger
+            className={cn(buttonVariants({ size: 'sm' }), 'fixed bottom-4 right-4 z-20 gap-1.5 shadow-lg lg:hidden')}
+          >
+            <Inbox size={14} />
+            Unscheduled
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[70vh] p-0">
             <SheetHeader className="sr-only">
