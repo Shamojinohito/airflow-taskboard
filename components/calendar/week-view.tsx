@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { format, isToday } from 'date-fns'
 import { useDndMonitor, useDroppable } from '@dnd-kit/core'
+import AllDayChip from '@/components/calendar/all-day-chip'
 import DueChip from '@/components/calendar/due-chip'
 import TaskBlock from '@/components/calendar/task-block'
 import { bucketTasksByDay } from '@/lib/calendar/buckets'
@@ -71,7 +72,9 @@ function DayColumnDropZone({
         onSlotSelect(date, snapStartMinutes(pxToMinutes(event.clientY - rect.top)))
       }}
       className={cn(
-        'relative flex-1 border-r border-border last:border-r-0 transition-colors',
+        // min-w-0: flex アイテムの既定 min-width:auto だと中身の min-content 幅より縮まず、
+        // 長いタイトルの日だけ列が広がって曜日ごとの幅が崩れる
+        'relative min-w-0 flex-1 border-r border-border last:border-r-0 transition-colors',
         isOver && 'bg-primary/5'
       )}
     >
@@ -138,7 +141,7 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotS
           const dateKey = format(day, 'yyyy-MM-dd')
           const bucket = buckets.get(dateKey)
           return (
-            <div key={dateKey} className="flex-1 border-r border-border last:border-r-0">
+            <div key={dateKey} className="min-w-0 flex-1 border-r border-border last:border-r-0">
               <div className="px-2 py-2 text-center">
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   {format(day, 'EEE')}
@@ -152,17 +155,12 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotS
               </div>
               <AllDayDropZone date={dateKey} onSlotSelect={onSlotSelect}>
                 {bucket?.allDay.map(task => (
-                  <button
+                  <AllDayChip
                     key={`allday-${task.id}`}
-                    type="button"
+                    task={task}
                     onClick={() => onTaskClick(task)}
-                    className={cn(
-                      'w-full truncate rounded border border-border bg-card px-1.5 py-0.5 text-left text-[11px] hover:bg-accent',
-                      task.status === 'done' && 'opacity-50 line-through'
-                    )}
-                  >
-                    {task.title}
-                  </button>
+                    onSchedule={onSchedule}
+                  />
                 ))}
                 {bucket?.due.map(task => (
                   <DueChip key={`due-${task.id}`} task={task} onClick={() => onTaskClick(task)} />

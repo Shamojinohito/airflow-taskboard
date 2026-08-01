@@ -2,7 +2,7 @@
 
 // まだ予定に入っていないタスクの置き場。ここからカレンダーへドラッグして割り当てる。
 import { Inbox } from 'lucide-react'
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -58,6 +58,12 @@ export function UnscheduledTaskCard({
 }
 
 export default function UnscheduledTray({ tasks, isLoading, onTaskClick, idPrefix }: UnscheduledTrayProps) {
+  // カレンダーからここへドロップすると予定を外す。処理はカレンダーページ側の useDndMonitor で行う
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${idPrefix}-dropzone`,
+    data: { type: 'calendar-unscheduled' },
+  })
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-3">
@@ -68,7 +74,13 @@ export default function UnscheduledTray({ tasks, isLoading, onTaskClick, idPrefi
         </Badge>
       </div>
 
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-2">
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex-1 space-y-1.5 overflow-y-auto p-2 transition-colors',
+          isOver && 'bg-primary/10'
+        )}
+      >
         {isLoading && (
           <>
             <Skeleton className="h-12 w-full" />

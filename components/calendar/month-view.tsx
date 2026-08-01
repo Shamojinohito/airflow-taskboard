@@ -2,11 +2,12 @@
 
 // 月ビュー（俯瞰用）。セル内は 終日予定 → 時間ブロック（開始時刻順）で並べ、
 // 入りきらない分は「他 N 件」に畳む。日付をクリックすると週ビューへ移る。
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format, isSameMonth, isToday } from 'date-fns'
+import ChipMenu from '@/components/calendar/chip-menu'
 import DueChip from '@/components/calendar/due-chip'
 import { bucketTasksByDay } from '@/lib/calendar/buckets'
-import { timeToMinutes } from '@/lib/calendar/schedule'
+import { CLEARED_SCHEDULE, timeToMinutes, type TaskSchedule } from '@/lib/calendar/schedule'
 import { cn } from '@/lib/utils'
 import type { CalendarTask } from '@/hooks/use-calendar-tasks'
 
@@ -20,12 +21,58 @@ interface MonthViewProps {
   month: Date
   tasks: CalendarTask[]
   onTaskClick: (task: CalendarTask) => void
+  onSchedule: (task: CalendarTask, schedule: TaskSchedule) => void
   onDaySelect: (date: Date) => void
 }
 
 type Chip = { kind: 'scheduled'; task: CalendarTask } | { kind: 'due'; task: CalendarTask }
 
-export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect }: MonthViewProps) {
+/** 予定チップ。右クリック / 「…」から予定を外して Unscheduled に戻せる */
+function ScheduledChip({
+  task, onClick, onSchedule,
+}: {
+  task: CalendarTask
+  onClick: () => void
+  onSchedule: (task: CalendarTask, schedule: TaskSchedule) => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  return (
+    <div
+      className="group relative"
+      onContextMenu={event => {
+        event.preventDefault()
+        setMenuOpen(true)
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        title={task.title}
+        className={cn(
+          'flex w-full items-center gap-1 truncate rounded border border-border bg-card py-0.5 pl-1 pr-5 text-left text-[10px] hover:bg-accent',
+          task.status === 'done' && 'opacity-50 line-through'
+        )}
+      >
+        {task.scheduled_start_time && (
+          <span className="shrink-0 tabular-nums text-muted-foreground">
+            {task.scheduled_start_time.slice(0, 5)}
+          </span>
+        )}
+        <span className="truncate">{task.title}</span>
+      </button>
+
+      <ChipMenu
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onOpenDetail={onClick}
+        onUnschedule={() => onSchedule(task, CLEARED_SCHEDULE)}
+      />
+    </div>
+  )
+}
+
+export default function MonthView({ days, month, tasks, onTaskClick, onSchedule, onDaySelect }: MonthViewProps) {
   const dateKeys = useMemo(() => days.map(day => format(day, 'yyyy-MM-dd')), [days])
   const buckets = useMemo(() => bucketTasksByDay(dateKeys, tasks), [dateKeys, tasks])
 
@@ -77,22 +124,12 @@ export default function MonthView({ days, month, tasks, onTaskClick, onDaySelect
               {shown.map(chip => chip.kind === 'due' ? (
                 <DueChip key={`d-${chip.task.id}`} task={chip.task} onClick={() => onTaskClick(chip.task)} />
               ) : (
-                <button
+                <ScheduledChip
                   key={`s-${chip.task.id}`}
-                  type="button"
+                  task={chip.task}
                   onClick={() => onTaskClick(chip.task)}
-                  className={cn(
-                    'flex w-full items-center gap-1 truncate rounded border border-border bg-card px-1 py-0.5 text-left text-[10px] hover:bg-accent',
-                    chip.task.status === 'done' && 'opacity-50 line-through'
-                  )}
-                >
-                  {chip.task.scheduled_start_time && (
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {chip.task.scheduled_start_time.slice(0, 5)}
-                    </span>
-                  )}
-                  <span className="truncate">{chip.task.title}</span>
-                </button>
+                  onSchedule={onSchedule}
+                />
               ))}
 
               {hiddenCount > 0 && (

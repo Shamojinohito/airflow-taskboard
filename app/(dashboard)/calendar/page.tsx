@@ -5,6 +5,7 @@ import {
   addDays, addMonths, differenceInCalendarDays, endOfMonth, endOfWeek, format,
   startOfMonth, startOfWeek, subMonths,
 } from 'date-fns'
+import { useDndMonitor } from '@dnd-kit/core'
 import { Inbox } from 'lucide-react'
 import AssignTaskDialog from '@/components/calendar/assign-task-dialog'
 import CalendarHeader, { type CalendarMode } from '@/components/calendar/calendar-header'
@@ -15,6 +16,7 @@ import TaskDetailPanel from '@/components/tasks/task-detail-panel'
 import { buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useCalendarTasks, useScheduleTask, useUnscheduledTasks, type CalendarTask } from '@/hooks/use-calendar-tasks'
+import { CLEARED_SCHEDULE } from '@/lib/calendar/schedule'
 import { useProjects } from '@/hooks/use-projects'
 import { useCalendarRealtime } from '@/hooks/use-realtime'
 import { cn } from '@/lib/utils'
@@ -86,6 +88,17 @@ export default function CalendarPage() {
 
   const openTaskDetail = (task: CalendarTask) => setSelectedTask({ id: task.id, projectId: task.project_id })
 
+  // トレイへドロップしたら予定を外す。週・月どちらのビューでも効くようページ側で拾う
+  useDndMonitor({
+    onDragEnd: event => {
+      const dragged = event.active.data.current as { type?: string; task?: CalendarTask } | undefined
+      const dropped = event.over?.data.current as { type?: string } | undefined
+      if (dropped?.type !== 'calendar-unscheduled') return
+      if (!dragged?.task || dragged.type !== 'task' || dragged.task.scheduled_date === null) return
+      scheduleTask(dragged.task, CLEARED_SCHEDULE)
+    },
+  })
+
   return (
     <div className="flex h-full">
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -126,6 +139,7 @@ export default function CalendarPage() {
                 month={anchorDate}
                 tasks={visibleTasks}
                 onTaskClick={openTaskDetail}
+                onSchedule={scheduleTask}
                 onDaySelect={day => { setAnchorDate(day); setMode('week') }}
               />
             )}

@@ -51,7 +51,7 @@ export default function TaskDndProvider({ children }: { children: ReactNode }) {
     // カレンダーのドロップ先はボード/リストの行より優先する
     const calendarCollision = collisions.find(collision => {
       const type = collision.data?.droppableContainer.data.current?.type
-      return type === 'calendar-day' || type === 'calendar-all-day'
+      return type === 'calendar-day' || type === 'calendar-all-day' || type === 'calendar-unscheduled'
     })
     if (calendarCollision) return [calendarCollision]
 

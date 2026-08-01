@@ -3,10 +3,7 @@
 // 時間グリッド上の予定ブロック。ドラッグ・リサイズ・右クリックメニューに対応する。
 import { useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { MoreHorizontal } from 'lucide-react'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import ChipMenu from '@/components/calendar/chip-menu'
 import { cn } from '@/lib/utils'
 import {
   buildTimedSchedule, CLEARED_SCHEDULE, DEFAULT_BLOCK_MINUTES, getDurationMinutes, minutesToPx,
@@ -129,20 +126,12 @@ export default function TaskBlock({ task, position, onClick, onSchedule }: TaskB
         </span>
       </button>
 
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger
-          aria-label="予定のメニュー"
-          className="absolute right-0.5 top-0.5 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent focus:opacity-100 group-hover:opacity-100"
-        >
-          <MoreHorizontal size={12} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onClick}>詳細を開く</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onSchedule(task, CLEARED_SCHEDULE)}>
-            予定を外す
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ChipMenu
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onOpenDetail={onClick}
+        onUnschedule={() => onSchedule(task, CLEARED_SCHEDULE)}
+      />
 
       <div
         onPointerDown={startResize}
