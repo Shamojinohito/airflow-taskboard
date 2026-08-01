@@ -134,46 +134,51 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotS
 
   return (
     <div className="flex h-full min-w-[720px] flex-col">
-      {/* 曜日ヘッダー + 終日行 */}
-      <div className="flex border-b border-border bg-background/70 backdrop-blur">
-        <div className="w-14 shrink-0 border-r border-border" />
-        {days.map(day => {
-          const dateKey = format(day, 'yyyy-MM-dd')
-          const bucket = buckets.get(dateKey)
-          return (
-            <div key={dateKey} className="min-w-0 flex-1 border-r border-border last:border-r-0">
-              <div className="px-2 py-2 text-center">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {format(day, 'EEE')}
+      {/* ヘッダー行と時間グリッドは同じスクロールコンテナに入れ、ヘッダーは sticky で固定する。
+          別々のコンテナに分けると、スクロールバーの幅だけ内容幅が変わって列位置がずれる */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {/* 曜日ヘッダー + 終日行 */}
+        <div className="sticky top-0 z-20 flex border-b border-border bg-background/95 backdrop-blur">
+          <div className="w-14 shrink-0 border-r border-border" />
+          {days.map(day => {
+            const dateKey = format(day, 'yyyy-MM-dd')
+            const bucket = buckets.get(dateKey)
+            return (
+              <div key={dateKey} className="min-w-0 flex-1 border-r border-border last:border-r-0">
+                <div className="px-2 py-2 text-center">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {format(day, 'EEE')}
+                  </div>
+                  <div className={cn(
+                    'mx-auto mt-0.5 flex size-6 items-center justify-center rounded-full text-sm font-semibold',
+                    isToday(day) && 'bg-primary text-primary-foreground'
+                  )}>
+                    {format(day, 'd')}
+                  </div>
                 </div>
-                <div className={cn(
-                  'mx-auto mt-0.5 flex size-6 items-center justify-center rounded-full text-sm font-semibold',
-                  isToday(day) && 'bg-primary text-primary-foreground'
-                )}>
-                  {format(day, 'd')}
-                </div>
+                <AllDayDropZone date={dateKey} onSlotSelect={onSlotSelect}>
+                  {bucket?.allDay.map(task => (
+                    <AllDayChip
+                      key={`allday-${task.id}`}
+                      task={task}
+                      onClick={() => onTaskClick(task)}
+                      onSchedule={onSchedule}
+                    />
+                  ))}
+                  {bucket?.due.map(task => (
+                    <DueChip
+                      key={`due-${task.id}`}
+                      task={task}
+                      onClick={() => onTaskClick(task)}
+                    />
+                  ))}
+                </AllDayDropZone>
               </div>
-              <AllDayDropZone date={dateKey} onSlotSelect={onSlotSelect}>
-                {bucket?.allDay.map(task => (
-                  <AllDayChip
-                    key={`allday-${task.id}`}
-                    task={task}
-                    onClick={() => onTaskClick(task)}
-                    onSchedule={onSchedule}
-                  />
-                ))}
-                {bucket?.due.map(task => (
-                  <DueChip key={`due-${task.id}`} task={task} onClick={() => onTaskClick(task)} />
-                ))}
-              </AllDayDropZone>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
 
-      {/* 時間グリッド。scrollbar-gutter: stable でスクロールバーの有無に関わらず幅を一定にし、
-          外側のヘッダー行（スクロールしない）と列位置がずれないようにする */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+        {/* 時間グリッド */}
         <div className="flex">
           <div className="w-14 shrink-0 border-r border-border">
             {HOURS.map(hour => (

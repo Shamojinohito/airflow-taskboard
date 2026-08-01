@@ -111,7 +111,7 @@ export default function TaskBlock({ task, position, onClick, onSchedule }: TaskB
         {...listeners}
         {...attributes}
         className={cn(
-          'flex h-full w-full flex-col overflow-hidden rounded border border-l-2 border-border bg-card px-1.5 py-0.5 text-left shadow-sm transition-colors hover:bg-accent',
+          'flex h-full w-full cursor-grab flex-col overflow-hidden rounded border border-l-2 border-border bg-card px-1.5 py-0.5 text-left shadow-sm transition-colors hover:bg-accent active:cursor-grabbing',
           PRIORITY_ACCENT[task.priority] ?? 'border-l-border',
           done && 'opacity-50',
           isDragging && 'opacity-40'

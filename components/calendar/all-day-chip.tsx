@@ -38,7 +38,7 @@ export default function AllDayChip({ task, onClick, onSchedule }: AllDayChipProp
         {...listeners}
         {...attributes}
         className={cn(
-          'w-full truncate rounded border border-border bg-card py-0.5 pl-1.5 pr-5 text-left text-[11px] hover:bg-accent',
+          'w-full cursor-grab truncate rounded border border-border bg-card py-0.5 pl-1.5 pr-5 text-left text-[11px] hover:bg-accent active:cursor-grabbing',
           task.status === 'done' && 'opacity-50 line-through',
           isDragging && 'opacity-40'
         )}
