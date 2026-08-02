@@ -9,19 +9,33 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import Sidebar from '@/components/layout/sidebar'
 import { createClient } from '@/lib/supabase/client'
+import { QUERY_CACHE_KEY } from '@/components/query-provider'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
+
+interface HeaderIdentity {
+  email?: string
+  avatarUrl?: string
+}
 
 export default function TopBar() {
-  const [user, setUser] = useState<User | null>(null)
+  const [identity, setIdentity] = useState<HeaderIdentity | null>(null)
   const [todayLabel, setTodayLabel] = useState('')
   const [navOpen, setNavOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    // getUser() は Auth サーバーへの往復が入る。表示に必要なのは email とアバターだけで、
+    // どちらもアクセストークンのクレームに載っているので getClaims()（ローカル検証）で足りる
+    supabase.auth.getClaims().then(({ data }) => {
+      const claims = data?.claims
+      if (!claims) return
+      const metadata = claims.user_metadata as { avatar_url?: string } | undefined
+      setIdentity({ email: claims.email, avatarUrl: metadata?.avatar_url })
+    })
     setTodayLabel(new Intl.DateTimeFormat('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -31,10 +45,18 @@ export default function TopBar() {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    // クエリキャッシュは localStorage に永続化されている。消さないと次に別アカウントで
+    // ログインしたとき、前のユーザーのプロジェクト/タスクが一瞬表示される
+    queryClient.clear()
+    try {
+      localStorage.removeItem(QUERY_CACHE_KEY)
+    } catch {
+      // storage unavailable — メモリ側は clear 済み
+    }
     router.push('/login')
   }
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?'
+  const initials = identity?.email?.slice(0, 2).toUpperCase() ?? '?'
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background/80 px-5 backdrop-blur">
@@ -70,7 +92,7 @@ export default function TopBar() {
         <DropdownMenu>
           <DropdownMenuTrigger className="h-8 w-8 rounded-full">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.user_metadata?.avatar_url} />
+              <AvatarImage src={identity?.avatarUrl} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>

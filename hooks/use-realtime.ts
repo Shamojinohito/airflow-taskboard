@@ -1,10 +1,44 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+
+/** イベントをまとめる窓。この時間内の変更は refetch 1回に集約される */
+const COALESCE_MS = 300
+
+/**
+ * postgres_changes は 1 行の変更ごとにイベントが飛ぶ。エージェントの一括更新や
+ * ドラッグでの並べ替えのように短時間に数十件が流れると、invalidateQueries が
+ * 同じ回数だけ全件 refetch を起こして描画が固まる。
+ * 最初のイベントで 1 回だけ refetch を予約し、窓の間に来た分は吸収する。
+ */
+function useCoalescedInvalidate(queryKeys: readonly (readonly unknown[])[]) {
+  const queryClient = useQueryClient()
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 配列リテラルを渡す呼び出し側でも useCallback が作り直されないよう、値で比較する
+  const serializedKeys = JSON.stringify(queryKeys)
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+
+  return useCallback(() => {
+    if (timer.current) return
+    timer.current = setTimeout(() => {
+      timer.current = null
+      for (const queryKey of JSON.parse(serializedKeys) as unknown[][]) {
+        queryClient.invalidateQueries({ queryKey })
+      }
+    }, COALESCE_MS)
+  }, [queryClient, serializedKeys])
+}
 
 export function useTasksRealtime(projectId: string) {
   const queryClient = useQueryClient()
   const supabase = createClient()
+  // キャッシュへの patch は即時。refetch を伴う invalidate だけまとめる
+  // （['tasks', projectId] は前方一致なので with-subtasks 側も巻き込む）
+  const invalidateAll = useCoalescedInvalidate([['tasks', projectId]])
+  const invalidateWithSubtasks = useCoalescedInvalidate([['tasks', projectId, 'with-subtasks']])
 
   useEffect(() => {
     const channel = supabase
@@ -16,11 +50,10 @@ export function useTasksRealtime(projectId: string) {
         filter: `project_id=eq.${projectId}`,
       }, (payload) => {
         const queryKey = ['tasks', projectId]
-        const tasksWithSubtasksKey = ['tasks', projectId, 'with-subtasks']
 
         if (payload.eventType === 'INSERT') {
           if (payload.new.parent_task_id) {
-            queryClient.invalidateQueries({ queryKey })
+            invalidateAll()
             return
           }
 
@@ -31,13 +64,13 @@ export function useTasksRealtime(projectId: string) {
             }
             return [...current, { ...payload.new, task_tags: [], task_links: [], assignee_agent: null }]
           })
-          queryClient.invalidateQueries({ queryKey: tasksWithSubtasksKey })
+          invalidateWithSubtasks()
           return
         }
 
         if (payload.eventType === 'UPDATE') {
           if (payload.new.parent_task_id) {
-            queryClient.invalidateQueries({ queryKey })
+            invalidateAll()
             return
           }
 
@@ -47,13 +80,13 @@ export function useTasksRealtime(projectId: string) {
               task.id === payload.new.id ? { ...task, ...payload.new } : task
             )
           })
-          queryClient.invalidateQueries({ queryKey: tasksWithSubtasksKey })
+          invalidateWithSubtasks()
           return
         }
 
         if (payload.eventType === 'DELETE') {
           if (payload.old.parent_task_id) {
-            queryClient.invalidateQueries({ queryKey })
+            invalidateAll()
             return
           }
 
@@ -61,7 +94,7 @@ export function useTasksRealtime(projectId: string) {
             if (!Array.isArray(current)) return current
             return current.filter((task: any) => task.id !== payload.old.id)
           })
-          queryClient.invalidateQueries({ queryKey: tasksWithSubtasksKey })
+          invalidateWithSubtasks()
           return
         }
 
@@ -70,12 +103,12 @@ export function useTasksRealtime(projectId: string) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [projectId, queryClient])
+  }, [projectId, queryClient, invalidateAll, invalidateWithSubtasks])
 }
 
 export function useInboxRealtime() {
-  const queryClient = useQueryClient()
   const supabase = createClient()
+  const invalidate = useCoalescedInvalidate([['triage-inbox']])
 
   useEffect(() => {
     const channel = supabase
@@ -86,17 +119,17 @@ export function useInboxRealtime() {
         table: 'tasks',
       }, () => {
         // Inbox rows join project/tags/agent data the payload lacks, so refetch instead of patching
-        queryClient.invalidateQueries({ queryKey: ['triage-inbox'] })
+        invalidate()
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  }, [invalidate])
 }
 
 export function useTodayRealtime() {
-  const queryClient = useQueryClient()
   const supabase = createClient()
+  const invalidate = useCoalescedInvalidate([['today-tasks']])
 
   useEffect(() => {
     const channel = supabase
@@ -107,17 +140,17 @@ export function useTodayRealtime() {
         table: 'tasks',
       }, () => {
         // Today rows join project/tags/agent data the payload lacks, so refetch instead of patching
-        queryClient.invalidateQueries({ queryKey: ['today-tasks'] })
+        invalidate()
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  }, [invalidate])
 }
 
 export function useCalendarRealtime() {
-  const queryClient = useQueryClient()
   const supabase = createClient()
+  const invalidate = useCoalescedInvalidate([['calendar-tasks'], ['unscheduled-tasks']])
 
   useEffect(() => {
     const channel = supabase
@@ -128,13 +161,12 @@ export function useCalendarRealtime() {
         table: 'tasks',
       }, () => {
         // カレンダー行は project/tags/agent の join を含み payload には無いため、patch せず refetch する
-        queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
-        queryClient.invalidateQueries({ queryKey: ['unscheduled-tasks'] })
+        invalidate()
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  }, [invalidate])
 }
 
 export function useAgentRunsRealtime() {

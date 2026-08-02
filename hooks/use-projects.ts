@@ -1,23 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchProjects, projectsQueryKey } from '@/lib/queries/projects'
 
 export function useProjects() {
   const supabase = createClient()
 
+  // dashboard layout がサーバー側で prefetch 済みなので、初回描画では
+  // HydrationBoundary 経由のデータが即座に入り、ここでは fetch が走らない
   const { data: projects = [], isLoading, error } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .is('archived_at', null)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      // Inbox（クイックキャプチャの受け皿）は常に先頭に表示する（名前ベースのピン留め）
-      return (data ?? []).sort(
-        (a: any, b: any) => (a.name === 'Inbox' ? 0 : 1) - (b.name === 'Inbox' ? 0 : 1)
-      )
-    },
+    queryKey: projectsQueryKey,
+    queryFn: () => fetchProjects(supabase),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   })

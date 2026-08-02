@@ -1,29 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchProjectGroups, projectGroupsQueryKey } from '@/lib/queries/projects'
 
-export interface ProjectGroup {
-  id: string
-  name: string
-  description: string | null
-  position: number
-  created_at: string
-}
+export type { ProjectGroup } from '@/lib/queries/projects'
 
 export function useProjectGroups() {
   const supabase = createClient()
 
+  // projects と同じく dashboard layout でサーバー prefetch 済み
   const { data: groups = [], isLoading, error } = useQuery({
-    queryKey: ['project-groups'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('project_groups')
-        .select('*')
-        .is('archived_at', null)
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return (data ?? []) as ProjectGroup[]
-    },
+    queryKey: projectGroupsQueryKey,
+    queryFn: () => fetchProjectGroups(supabase),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   })

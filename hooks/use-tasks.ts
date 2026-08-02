@@ -42,6 +42,8 @@ export function useTasks(projectId: string, options: UseTasksOptions = {}) {
     queryKey,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     queryFn: async (): Promise<any[]> => {
+      // description はボード/リストのどこにも描画されない（詳細パネルと編集フォームは
+      // 自分で該当行を select し直す）。タスク1件あたり最も重いテキスト列なので取らない
       const query = supabase
         .from('tasks')
         .select(`
@@ -49,7 +51,6 @@ export function useTasks(projectId: string, options: UseTasksOptions = {}) {
           project_id,
           parent_task_id,
           title,
-          description,
           status,
           priority,
           action_type,

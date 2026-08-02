@@ -37,8 +37,11 @@ export default function MyTasksPage() {
   const { data: tasks = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: ['my-tasks'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
+      // getUser() だと取得のたびに Auth サーバーへ往復が入る。必要なのは user id だけで、
+      // アクセストークンの sub クレームに入っているので getClaims()（ローカル検証）で足りる
+      const { data: claimsData } = await supabase.auth.getClaims()
+      const userId = claimsData?.claims?.sub
+      if (!userId) return []
 
       const { data, error } = await (supabase.from('tasks') as any)
         .select(`
@@ -56,7 +59,7 @@ export default function MyTasksPage() {
           task_links(id, url, title),
           assignee_agent:assignee_agent_id(id, name, type)
         `)
-        .eq('assignee_user_id', user.id)
+        .eq('assignee_user_id', userId)
         .order('due_date', { ascending: true, nullsFirst: false })
 
       if (error) throw error
