@@ -5,8 +5,8 @@ import { CalendarRange, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
@@ -90,23 +90,26 @@ export default function CalendarHeader({
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-auto">
-            <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onClearProjectFilter}>
-              {filterActive ? 'すべて表示' : 'すべて表示（現在）'}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {projects.map(project => (
-              <DropdownMenuItem
-                key={project.id}
-                // 複数選択できるよう、トグルしてもメニューを閉じない
-                closeOnClick={false}
-                onClick={() => onToggleProject(project.id)}
-                className={cn(selectedProjectIds.includes(project.id) && 'font-semibold')}
-              >
-                <span className="truncate">{project.name}</span>
+            {/* Base UI の GroupLabel は Group/RadioGroup 配下が必須（外にあると context 欠落で throw） */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>表示するプロジェクト</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onClearProjectFilter}>
+                {filterActive ? 'すべて表示' : 'すべて表示（現在）'}
               </DropdownMenuItem>
-            ))}
+              <DropdownMenuSeparator />
+              {projects.map(project => (
+                <DropdownMenuItem
+                  key={project.id}
+                  // 複数選択できるよう、トグルしてもメニューを閉じない
+                  closeOnClick={false}
+                  onClick={() => onToggleProject(project.id)}
+                  className={cn(selectedProjectIds.includes(project.id) && 'font-semibold')}
+                >
+                  <span className="truncate">{project.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

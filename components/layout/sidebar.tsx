@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -97,19 +97,22 @@ function ProjectRow({
           <MoreHorizontal size={15} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Move to group</DropdownMenuLabel>
-          {groups.length === 0 && (
-            <DropdownMenuItem disabled>No groups yet</DropdownMenuItem>
-          )}
-          {groups.map(group => (
-            <DropdownMenuItem
-              key={group.id}
-              disabled={project.group_id === group.id}
-              onClick={() => onMove(project.id, group.id)}
-            >
-              {group.name}
-            </DropdownMenuItem>
-          ))}
+          {/* Base UI の GroupLabel は Group/RadioGroup 配下が必須（外にあると context 欠落で throw） */}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Move to group</DropdownMenuLabel>
+            {groups.length === 0 && (
+              <DropdownMenuItem disabled>No groups yet</DropdownMenuItem>
+            )}
+            {groups.map(group => (
+              <DropdownMenuItem
+                key={group.id}
+                disabled={project.group_id === group.id}
+                onClick={() => onMove(project.id, group.id)}
+              >
+                {group.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
           {project.group_id && (
             <>
               <DropdownMenuSeparator />
