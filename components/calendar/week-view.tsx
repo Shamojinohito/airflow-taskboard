@@ -88,10 +88,13 @@ interface WeekViewProps {
   tasks: CalendarTask[]
   onTaskClick: (task: CalendarTask) => void
   onSchedule: (task: CalendarTask, schedule: TaskSchedule) => void
+  onSetDueDate: (task: CalendarTask, dueDate: string) => void
   onSlotSelect: (date: string, startMinutes: number | null) => void
 }
 
-export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotSelect }: WeekViewProps) {
+export default function WeekView({
+  days, tasks, onTaskClick, onSchedule, onSetDueDate, onSlotSelect,
+}: WeekViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const dateKeys = useMemo(() => days.map(day => format(day, 'yyyy-MM-dd')), [days])
   const buckets = useMemo(() => bucketTasksByDay(dateKeys, tasks), [dateKeys, tasks])
@@ -105,6 +108,12 @@ export default function WeekView({ days, tasks, onTaskClick, onSchedule, onSlotS
         | { type?: string; date?: string; getTop?: () => number | undefined }
         | undefined
       if (!dragged?.task || dragged.type !== 'task' || !dropped?.date) return
+
+      // 締切チップは締切日そのものを動かす。掴んだチップが移るだけで、作業予定には触れない
+      if (dragged.source === 'calendar-due') {
+        if (dragged.task.due_date !== dropped.date) onSetDueDate(dragged.task, dropped.date)
+        return
+      }
 
       if (dropped.type === 'calendar-all-day') {
         onSchedule(dragged.task, buildAllDaySchedule(dropped.date))

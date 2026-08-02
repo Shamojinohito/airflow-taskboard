@@ -62,7 +62,7 @@ export default function CalendarPage() {
   const { tasks } = useCalendarTasks(rangeStart, rangeEnd)
 
   const { tasks: unscheduledTasks, isLoading: unscheduledLoading } = useUnscheduledTasks()
-  const { scheduleTask } = useScheduleTask(rangeStart, rangeEnd)
+  const { scheduleTask, setDueDate } = useScheduleTask(rangeStart, rangeEnd)
 
   const visibleUnscheduled = useMemo(() => {
     if (selectedProjectIds.length === 0) return unscheduledTasks
@@ -91,10 +91,14 @@ export default function CalendarPage() {
   // トレイへドロップしたら予定を外す。週・月どちらのビューでも効くようページ側で拾う
   useDndMonitor({
     onDragEnd: event => {
-      const dragged = event.active.data.current as { type?: string; task?: CalendarTask } | undefined
+      const dragged = event.active.data.current as
+        | { type?: string; source?: string; task?: CalendarTask }
+        | undefined
       const dropped = event.over?.data.current as { type?: string } | undefined
       if (dropped?.type !== 'calendar-unscheduled') return
       if (!dragged?.task || dragged.type !== 'task' || dragged.task.scheduled_date === null) return
+      // 締切チップは締切を動かすためのもの。トレイに落としても予定は外さない
+      if (dragged.source === 'calendar-due') return
       scheduleTask(dragged.task, CLEARED_SCHEDULE)
     },
   })
@@ -131,6 +135,7 @@ export default function CalendarPage() {
                 tasks={visibleTasks}
                 onTaskClick={openTaskDetail}
                 onSchedule={scheduleTask}
+                onSetDueDate={setDueDate}
                 onSlotSelect={(date, startMinutes) => setAssignTarget({ date, startMinutes })}
               />
             ) : (

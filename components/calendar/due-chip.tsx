@@ -1,7 +1,7 @@
 'use client'
 
 // 締切マーカー。作業予定ブロックとは別スタイル（旗アイコン付きの細いチップ）で終日行に出す。
-// 締切そのものは動かさないが、ここから時間枠へドラッグして「その日に作業予定を入れる」ことはできる。
+// ドラッグすると動くのは締切日そのもの（掴んだチップが移る）。作業予定は変わらない。
 import { useDraggable } from '@dnd-kit/core'
 import { Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,7 @@ export default function DueChip({ task, onClick }: DueChipProps) {
   const done = task.status === 'done'
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `calendar-due-${task.id}`,
-    data: { type: 'task', source: 'calendar', task },
+    data: { type: 'task', source: 'calendar-due', task },
   })
 
   return (

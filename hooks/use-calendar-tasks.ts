@@ -104,9 +104,16 @@ export function useUnscheduledTasks() {
   return { tasks: tasks as CalendarTask[], isLoading, error: error as Error | null }
 }
 
+/** 日付まわりの更新パッチ。予定（scheduled_*）と締切（due_date）のどちらか */
+type TaskDatePatch = TaskSchedule | { due_date: string }
+
+function isSchedulePatch(patch: TaskDatePatch): patch is TaskSchedule {
+  return 'scheduled_date' in patch
+}
+
 /**
- * 予定の設定・移動・解除。カレンダーとトレイの両方のキャッシュを楽観的に書き換える。
- * 予定が付けばトレイから消え、外せばトレイに戻る。
+ * 予定の設定・移動・解除と、締切の移動。カレンダーとトレイの両方のキャッシュを楽観的に書き換える。
+ * 予定が付けばトレイから消え、外せばトレイに戻る。締切だけ変えた場合はトレイ内で並び直す。
  */
 export function useScheduleTask(rangeStart: string, rangeEnd: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,18 +122,18 @@ export function useScheduleTask(rangeStart: string, rangeEnd: string) {
   const calendarKey = calendarTasksKey(rangeStart, rangeEnd)
 
   const mutation = useMutation({
-    mutationFn: async ({ task, schedule }: { task: CalendarTask; schedule: TaskSchedule }) => {
-      if (!isValidSchedule(schedule)) throw new Error('invalid schedule')
-      const { error } = await supabase.from('tasks').update(schedule).eq('id', task.id)
+    mutationFn: async ({ task, patch }: { task: CalendarTask; patch: TaskDatePatch }) => {
+      if (isSchedulePatch(patch) && !isValidSchedule(patch)) throw new Error('invalid schedule')
+      const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
       if (error) throw error
     },
-    onMutate: async ({ task, schedule }: { task: CalendarTask; schedule: TaskSchedule }) => {
+    onMutate: async ({ task, patch }: { task: CalendarTask; patch: TaskDatePatch }) => {
       await queryClient.cancelQueries({ queryKey: calendarKey })
       await queryClient.cancelQueries({ queryKey: UNSCHEDULED_TASKS_KEY })
 
       const previousCalendar = queryClient.getQueryData(calendarKey)
       const previousUnscheduled = queryClient.getQueryData(UNSCHEDULED_TASKS_KEY)
-      const next = { ...task, ...schedule }
+      const next = { ...task, ...patch }
 
       queryClient.setQueryData(calendarKey, (current: unknown) => {
         if (!Array.isArray(current)) return current
@@ -164,7 +171,10 @@ export function useScheduleTask(rangeStart: string, rangeEnd: string) {
 
   return {
     scheduleTask: (task: CalendarTask, schedule: TaskSchedule) =>
-      mutation.mutate({ task, schedule }),
+      mutation.mutate({ task, patch: schedule }),
+    /** 締切チップのドラッグで締切日だけを動かす。作業予定には触れない */
+    setDueDate: (task: CalendarTask, dueDate: string) =>
+      mutation.mutate({ task, patch: { due_date: dueDate } }),
     isPending: mutation.isPending,
   }
 }

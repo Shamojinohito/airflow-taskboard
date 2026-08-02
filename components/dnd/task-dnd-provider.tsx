@@ -10,12 +10,14 @@ import {
   pointerWithin, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
 import { useQueryClient } from '@tanstack/react-query'
+import { Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/board/task-card'
 
 export interface TaskDragData {
   type: 'task'
-  source: 'board' | 'list' | 'calendar' | 'tray'
+  /** calendar-due は締切チップ（掴むと締切日が動く）、calendar は作業予定 */
+  source: 'board' | 'list' | 'calendar' | 'calendar-due' | 'tray'
   listId?: string
   /** 時間ブロックを移動するとき、元の長さ（分）を保つために持ち回る */
   durationMinutes?: number
@@ -138,6 +140,12 @@ export default function TaskDndProvider({ children }: { children: ReactNode }) {
       <DragOverlay>
         {activeDrag?.source === 'board' ? (
           <TaskCard task={activeDrag.task} onClick={() => {}} />
+        ) : activeDrag?.source === 'calendar-due' ? (
+          // 締切チップは掴んでいるものが分かるよう、カレンダー上と同じ配色にする
+          <div className="flex w-64 items-center gap-1.5 truncate rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-500 shadow-md">
+            <Flag size={12} className="shrink-0" />
+            <span className="truncate">締切: {activeDrag.task.title}</span>
+          </div>
         ) : activeDrag ? (
           <div className="w-64 truncate rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-md">
             {activeDrag.task.title}
